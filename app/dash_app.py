@@ -442,6 +442,61 @@ def create_app() -> dash.Dash:
                     text-align: center;
                     color: #666;
                 }
+                /* Data table styles */
+                .data-table-container {
+                    margin-top: 30px;
+                    overflow-x: auto;
+                }
+                .data-table-container h3 {
+                    margin-bottom: 15px;
+                    color: #333;
+                    font-size: 1.1rem;
+                }
+                .data-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 0.85rem;
+                }
+                .data-table th, .data-table td {
+                    padding: 8px 12px;
+                    text-align: right;
+                    border: 1px solid #e0e0e0;
+                    white-space: nowrap;
+                }
+                .data-table th {
+                    background-color: #f8f9fa;
+                    font-weight: 600;
+                    color: #333;
+                    position: sticky;
+                    top: 0;
+                }
+                .data-table th:first-child, .data-table td:first-child {
+                    text-align: left;
+                    position: sticky;
+                    left: 0;
+                    background-color: #f8f9fa;
+                    z-index: 1;
+                }
+                .data-table tbody tr:nth-child(odd) {
+                    background-color: #fafafa;
+                }
+                .data-table tbody tr:nth-child(odd) td:first-child {
+                    background-color: #fafafa;
+                }
+                .data-table tbody tr:hover {
+                    background-color: #f0f0f0;
+                }
+                .data-table tbody tr:hover td:first-child {
+                    background-color: #f0f0f0;
+                }
+                .data-table tfoot td {
+                    font-weight: 600;
+                    background-color: #e8e8e8;
+                    border-top: 2px solid #ccc;
+                }
+                .data-table tfoot td:first-child {
+                    background-color: #e8e8e8;
+                }
                 @media (max-width: 900px) {
                     .analysis-container {
                         grid-template-columns: 1fr;
@@ -878,8 +933,193 @@ def create_cost_analysis_layout():
                     style={"height": "500px"},
                 ),
 
+                # Data table below chart
+                html.Div(id="analysis-data-table", className="data-table-container"),
+
             ], className="analysis-main"),
         ], className="analysis-container"),
+    ])
+
+
+def generate_data_table(active_tab: str, all_results: dict, years: int):
+    """Generate a data table for the analysis results based on the active tab.
+
+    Args:
+        active_tab: The currently active chart tab (value, equity, cash, costs, roi)
+        all_results: Dictionary of analysis results keyed by home label
+        years: Number of years in the analysis
+
+    Returns:
+        HTML table element showing the data
+    """
+    if not all_results:
+        return []
+
+    # Get the first home's results to determine the number of years
+    first_results = list(all_results.values())[0]["results"]
+
+    if active_tab == "costs":
+        # For Annual Costs tab, show breakdown of cost components
+        return generate_costs_table(all_results, years)
+    elif active_tab == "value":
+        return generate_simple_table(
+            all_results, "home_value", "Home Value by Year", is_currency=True
+        )
+    elif active_tab == "equity":
+        return generate_simple_table(
+            all_results, "equity", "Equity by Year", is_currency=True
+        )
+    elif active_tab == "cash":
+        return generate_simple_table(
+            all_results, "total_cash_invested", "Total Cash Invested by Year", is_currency=True
+        )
+    elif active_tab == "roi":
+        return generate_simple_table(
+            all_results, "roi", "ROI by Year", is_currency=False, is_ratio=True
+        )
+
+    return []
+
+
+def generate_simple_table(all_results: dict, field: str, title: str, is_currency: bool = True, is_ratio: bool = False):
+    """Generate a simple table with years as columns and homes as rows."""
+    if not all_results:
+        return []
+
+    # Get all years from the first result
+    first_results = list(all_results.values())[0]["results"]
+    all_years = [r.year for r in first_results]
+
+    # Build header row
+    header_cells = [html.Th("Home")] + [html.Th(f"Year {yr}") for yr in all_years]
+
+    # Build data rows
+    rows = []
+    for label, data in all_results.items():
+        results = data["results"]
+        cells = [html.Td(label[:30])]
+
+        for r in results:
+            if field == "roi":
+                val = r.roi if r.roi else 0
+                cell_text = f"{val:.2f}x" if val else "—"
+            else:
+                val = getattr(r, field)
+                if is_currency:
+                    cell_text = f"${val:,.0f}"
+                elif is_ratio:
+                    cell_text = f"{val:.2f}x" if val else "—"
+                else:
+                    cell_text = f"{val:,.0f}"
+            cells.append(html.Td(cell_text))
+
+        rows.append(html.Tr(cells))
+
+    return html.Div([
+        html.H3(title),
+        html.Table([
+            html.Thead(html.Tr(header_cells)),
+            html.Tbody(rows),
+        ], className="data-table"),
+    ])
+
+
+def generate_costs_table(all_results: dict, years: int):
+    """Generate a detailed costs table showing breakdown of annual costs.
+
+    For the Annual Costs tab, we show:
+    - Year 0: Purchase fees (closing costs)
+    - Year 1+: Property taxes, repairs, maintenance, mortgage payment, and total
+    """
+    if not all_results:
+        return []
+
+    tables = []
+
+    for label, data in all_results.items():
+        results = data["results"]
+        home = data["home"]
+        color = data["color"]
+
+        # Get first result for initial investment info
+        first = results[0]
+
+        # Build header - Year as a column
+        header_cells = [
+            html.Th("Year"),
+            html.Th("Property Taxes"),
+            html.Th("Repairs"),
+            html.Th("Maintenance (HOA)"),
+            html.Th("Mortgage Payment"),
+            html.Th("Total Annual Cost"),
+        ]
+
+        # Build rows for each year
+        rows = []
+
+        # Year 0 row - shows closing fees
+        yr0 = results[0]
+        rows.append(html.Tr([
+            html.Td("0 (Purchase)"),
+            html.Td("—"),
+            html.Td("—"),
+            html.Td("—"),
+            html.Td("—"),
+            html.Td(f"${yr0.total_cash_invested:,.0f}", style={"fontWeight": "600"}),
+        ]))
+
+        # Cumulative totals for footer
+        total_taxes = 0
+        total_repairs = 0
+        total_maintenance = 0
+        total_mortgage = 0
+        total_all = yr0.total_cash_invested  # Start with initial investment
+
+        for r in results[1:]:
+            total_taxes += r.annual_taxes
+            total_repairs += r.annual_repair
+            total_maintenance += r.annual_maintenance
+            total_mortgage += r.annual_mortgage_payment
+
+            year_total = (
+                r.annual_taxes
+                + r.annual_repair
+                + r.annual_maintenance
+                + r.annual_mortgage_payment
+            )
+            total_all += year_total
+
+            rows.append(html.Tr([
+                html.Td(str(r.year)),
+                html.Td(f"${r.annual_taxes:,.0f}"),
+                html.Td(f"${r.annual_repair:,.0f}"),
+                html.Td(f"${r.annual_maintenance:,.0f}"),
+                html.Td(f"${r.annual_mortgage_payment:,.0f}"),
+                html.Td(f"${year_total:,.0f}", style={"fontWeight": "600"}),
+            ]))
+
+        # Footer with totals
+        footer_row = html.Tr([
+            html.Td("Total"),
+            html.Td(f"${total_taxes:,.0f}"),
+            html.Td(f"${total_repairs:,.0f}"),
+            html.Td(f"${total_maintenance:,.0f}"),
+            html.Td(f"${total_mortgage:,.0f}"),
+            html.Td(f"${total_all:,.0f}"),
+        ])
+
+        tables.append(html.Div([
+            html.H3(label, style={"color": color}),
+            html.Table([
+                html.Thead(html.Tr(header_cells)),
+                html.Tbody(rows),
+                html.Tfoot([footer_row]),
+            ], className="data-table"),
+        ], style={"marginBottom": "30px"}))
+
+    return html.Div([
+        html.H3("Annual Cost Breakdown"),
+        *tables,
     ])
 
 
@@ -1149,7 +1389,11 @@ def register_callbacks(app: dash.Dash):
         ]
 
     @app.callback(
-        [Output("analysis-chart", "figure"), Output("summary-cards", "children")],
+        [
+            Output("analysis-chart", "figure"),
+            Output("summary-cards", "children"),
+            Output("analysis-data-table", "children"),
+        ],
         [
             Input("active-chart-tab", "data"),
             Input("years-slider", "value"),
@@ -1194,7 +1438,7 @@ def register_callbacks(app: dash.Dash):
                 template="plotly_white",
                 height=500,
             )
-            return fig, html.Div("Select one or more homes to see analysis", className="no-homes-message")
+            return fig, html.Div("Select one or more homes to see analysis", className="no-homes-message"), []
 
         # Get home data
         homes_data = []
@@ -1206,7 +1450,7 @@ def register_callbacks(app: dash.Dash):
         if not homes_data:
             fig = go.Figure()
             fig.update_layout(title="No valid homes selected")
-            return fig, []
+            return fig, [], []
 
         # Convert inputs to proper values (handle None)
         years = years or 30
@@ -1357,4 +1601,7 @@ def register_callbacks(app: dash.Dash):
                 ], className="summary-card")
             )
 
-        return fig, summary_cards
+        # Generate data table based on active tab
+        data_table = generate_data_table(active_tab, all_results, years)
+
+        return fig, summary_cards, data_table

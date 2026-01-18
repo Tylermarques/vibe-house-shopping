@@ -312,6 +312,8 @@ def create_app() -> dash.Dash:
                     padding: 20px;
                     border-radius: 12px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    min-width: 0;
+                    overflow: hidden;
                 }
                 .param-group {
                     margin-bottom: 20px;
@@ -851,7 +853,11 @@ def create_cost_analysis_layout():
                 html.Div(id="summary-cards", className="summary-cards"),
 
                 # Chart
-                dcc.Graph(id="analysis-chart", config={"displayModeBar": True}),
+                dcc.Graph(
+                    id="analysis-chart",
+                    config={"displayModeBar": True, "responsive": True},
+                    style={"height": "500px"},
+                ),
 
             ], className="analysis-main"),
         ], className="analysis-container"),
@@ -1288,6 +1294,10 @@ def register_callbacks(app: dash.Dash):
             height=500,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             hovermode="x unified",
+            autosize=True,
+            yaxis=dict(automargin=False, fixedrange=False),
+            xaxis=dict(automargin=False),
+            margin=dict(l=80, r=40, t=60, b=60),
         )
 
         if config["field"] != "roi":

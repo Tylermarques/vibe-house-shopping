@@ -110,7 +110,7 @@ def create_app() -> dash.Dash:
                 className="main-content",
             ),
             # Hidden div for storing data
-            dcc.Store(id="homes-data"),
+            dcc.Store(id="homes-data", data=get_all_homes()),
             # Interval for auto-refresh (every 30 seconds)
             dcc.Interval(id="auto-refresh", interval=30000, n_intervals=0),
         ],

@@ -48,6 +48,11 @@ class Home(Base):
     currency = Column(String(10))  # Currency code (CAD, USD)
     country = Column(String(10))  # Country code (CA, US)
 
+    # Cost analysis fields
+    property_tax_rate = Column(Float)  # Annual property tax rate (e.g., 0.012 for 1.2%)
+    hoa_monthly = Column(Float)  # Monthly HOA/condo fees
+    estimated_repair_pct = Column(Float)  # Monthly repair estimate as % of home value (e.g., 0.0003)
+
     def to_dict(self):
         """Convert home to dictionary for display."""
         return {
@@ -77,6 +82,10 @@ class Home(Base):
             "video_url": self.video_url,
             "currency": self.currency,
             "country": self.country,
+            # Cost analysis fields
+            "property_tax_rate": self.property_tax_rate,
+            "hoa_monthly": self.hoa_monthly,
+            "estimated_repair_pct": self.estimated_repair_pct,
         }
 
 

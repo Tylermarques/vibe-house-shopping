@@ -1,11 +1,14 @@
 """Dash application for visualizing home data on a map."""
 
 import dash
-from dash import html, dcc, dash_table, callback, Input, Output
+from dash import html, dcc, dash_table, callback, Input, Output, State, ALL
 import dash_leaflet as dl
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from .database import get_all_homes, get_home_by_id, init_db
+from .cost_analysis import CostAnalysisParams, run_analysis, DEFAULTS
 
 
 def create_app() -> dash.Dash:
@@ -264,6 +267,174 @@ def create_app() -> dash.Dash:
                 tbody tr:nth-child(odd):hover {
                     background-color: #f0f0f0;
                 }
+                /* Navigation styles */
+                .nav-bar {
+                    display: flex;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                    padding: 15px 20px;
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                }
+                .nav-link {
+                    color: #667eea;
+                    text-decoration: none;
+                    font-weight: 500;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    transition: background-color 0.2s;
+                }
+                .nav-link:hover {
+                    background-color: #f0f0ff;
+                }
+                .nav-link.active {
+                    background-color: #667eea;
+                    color: white;
+                }
+                /* Cost Analysis Page Styles */
+                .analysis-container {
+                    display: grid;
+                    grid-template-columns: 350px 1fr;
+                    gap: 20px;
+                }
+                .analysis-sidebar {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    height: fit-content;
+                    position: sticky;
+                    top: 20px;
+                }
+                .analysis-main {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                .param-group {
+                    margin-bottom: 20px;
+                }
+                .param-group h4 {
+                    margin-bottom: 10px;
+                    color: #333;
+                    font-size: 0.95rem;
+                }
+                .param-input {
+                    display: flex;
+                    flex-direction: column;
+                    margin-bottom: 12px;
+                }
+                .param-input label {
+                    font-size: 0.85rem;
+                    color: #666;
+                    margin-bottom: 4px;
+                }
+                .param-input input, .param-input select {
+                    padding: 8px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 0.95rem;
+                }
+                .param-input input:focus, .param-input select:focus {
+                    outline: none;
+                    border-color: #667eea;
+                }
+                .home-checkbox-list {
+                    max-height: 200px;
+                    overflow-y: auto;
+                    border: 1px solid #eee;
+                    border-radius: 6px;
+                    padding: 10px;
+                }
+                .home-checkbox-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .home-checkbox-item:last-child {
+                    border-bottom: none;
+                }
+                .home-checkbox-item input {
+                    margin-right: 10px;
+                }
+                .home-checkbox-item label {
+                    font-size: 0.9rem;
+                    cursor: pointer;
+                }
+                .chart-tabs {
+                    display: flex;
+                    gap: 5px;
+                    margin-bottom: 20px;
+                    border-bottom: 2px solid #eee;
+                    padding-bottom: 0;
+                }
+                .chart-tab {
+                    padding: 10px 20px;
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                    font-size: 0.95rem;
+                    color: #666;
+                    border-bottom: 2px solid transparent;
+                    margin-bottom: -2px;
+                    transition: all 0.2s;
+                }
+                .chart-tab:hover {
+                    color: #667eea;
+                }
+                .chart-tab.active {
+                    color: #667eea;
+                    border-bottom-color: #667eea;
+                    font-weight: 500;
+                }
+                .slider-container {
+                    margin-top: 10px;
+                }
+                .slider-value {
+                    text-align: center;
+                    font-weight: 500;
+                    color: #667eea;
+                    margin-top: 5px;
+                }
+                .summary-cards {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: 15px;
+                    margin-bottom: 20px;
+                }
+                .summary-card {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: center;
+                }
+                .summary-card .label {
+                    font-size: 0.8rem;
+                    color: #666;
+                    text-transform: uppercase;
+                    margin-bottom: 5px;
+                }
+                .summary-card .value {
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                    color: #333;
+                }
+                .no-homes-message {
+                    padding: 40px;
+                    text-align: center;
+                    color: #666;
+                }
+                @media (max-width: 900px) {
+                    .analysis-container {
+                        grid-template-columns: 1fr;
+                    }
+                    .analysis-sidebar {
+                        position: static;
+                    }
+                }
             </style>
         </head>
         <body>
@@ -283,9 +454,19 @@ def create_app() -> dash.Dash:
     return app
 
 
+def create_nav_bar(active_page: str = "homes"):
+    """Create the navigation bar."""
+    return html.Div([
+        html.A("Home Listings", href="/", className=f"nav-link {'active' if active_page == 'homes' else ''}"),
+        html.A("Cost Analysis", href="/analysis", className=f"nav-link {'active' if active_page == 'analysis' else ''}"),
+    ], className="nav-bar")
+
+
 def create_home_list_layout():
     """Create the main home listing layout."""
     return html.Div([
+        # Navigation
+        create_nav_bar("homes"),
         # Header
         html.Div(
             [
@@ -489,6 +670,194 @@ def create_home_detail_layout(home_id: int):
     ])
 
 
+def create_cost_analysis_layout():
+    """Create the cost analysis page layout."""
+    homes = get_all_homes()
+
+    # Filter to homes with prices (required for analysis)
+    homes_with_prices = [h for h in homes if h.get("price")]
+
+    if not homes_with_prices:
+        return html.Div([
+            create_nav_bar("analysis"),
+            html.Div(
+                [
+                    html.H1("Vibe House Shopping", className="header-title"),
+                    html.P("Cost Analysis", className="header-subtitle"),
+                ],
+                className="header",
+            ),
+            html.Div([
+                html.H3("No homes available for analysis"),
+                html.P("Import some home listings with prices to use the cost analysis feature."),
+            ], className="no-homes-message"),
+        ])
+
+    # Create home checkboxes
+    home_checkboxes = []
+    for home in homes_with_prices:
+        price_str = f"${home['price']:,.0f}" if home.get("price") else ""
+        label = f"{home.get('address', 'Unknown')[:40]} - {price_str}"
+        home_checkboxes.append(
+            html.Div([
+                dcc.Checklist(
+                    id={"type": "home-checkbox", "index": home["id"]},
+                    options=[{"label": label, "value": home["id"]}],
+                    value=[],
+                    style={"display": "inline"},
+                ),
+            ], className="home-checkbox-item")
+        )
+
+    return html.Div([
+        # Navigation
+        create_nav_bar("analysis"),
+        # Header
+        html.Div(
+            [
+                html.H1("Vibe House Shopping", className="header-title"),
+                html.P("Cost Analysis", className="header-subtitle"),
+            ],
+            className="header",
+        ),
+        # Main content
+        html.Div([
+            # Sidebar with controls
+            html.Div([
+                # Home selection
+                html.Div([
+                    html.H4("Select Homes to Compare"),
+                    html.Div(home_checkboxes, className="home-checkbox-list"),
+                ], className="param-group"),
+
+                # Time horizon slider
+                html.Div([
+                    html.H4("Time Horizon"),
+                    html.Div([
+                        dcc.Slider(
+                            id="years-slider",
+                            min=5,
+                            max=30,
+                            step=1,
+                            value=30,
+                            marks={5: "5", 10: "10", 15: "15", 20: "20", 25: "25", 30: "30"},
+                        ),
+                        html.Div(id="years-display", className="slider-value"),
+                    ], className="slider-container"),
+                ], className="param-group"),
+
+                # Financial parameters
+                html.Div([
+                    html.H4("Loan Parameters"),
+                    html.Div([
+                        html.Label("Down Payment (%)"),
+                        dcc.Input(
+                            id="down-payment-input",
+                            type="number",
+                            value=DEFAULTS["down_payment_pct"] * 100,
+                            min=0,
+                            max=100,
+                            step=1,
+                        ),
+                    ], className="param-input"),
+                    html.Div([
+                        html.Label("Interest Rate (%)"),
+                        dcc.Input(
+                            id="interest-rate-input",
+                            type="number",
+                            value=DEFAULTS["interest_rate"] * 100,
+                            min=0,
+                            max=20,
+                            step=0.01,
+                        ),
+                    ], className="param-input"),
+                    html.Div([
+                        html.Label("Loan Term (years)"),
+                        dcc.Input(
+                            id="loan-term-input",
+                            type="number",
+                            value=DEFAULTS["loan_term_years"],
+                            min=5,
+                            max=30,
+                            step=1,
+                        ),
+                    ], className="param-input"),
+                    html.Div([
+                        html.Label("Purchase Fees ($)"),
+                        dcc.Input(
+                            id="purchase-fees-input",
+                            type="number",
+                            value=DEFAULTS["purchase_fees"],
+                            min=0,
+                            step=1000,
+                        ),
+                    ], className="param-input"),
+                ], className="param-group"),
+
+                html.Div([
+                    html.H4("Growth & Costs"),
+                    html.Div([
+                        html.Label("Annual Appreciation (%)"),
+                        dcc.Input(
+                            id="growth-rate-input",
+                            type="number",
+                            value=DEFAULTS["annual_growth_rate"] * 100,
+                            min=-10,
+                            max=20,
+                            step=0.1,
+                        ),
+                    ], className="param-input"),
+                    html.Div([
+                        html.Label("Monthly Repair Est. (% of value)"),
+                        dcc.Input(
+                            id="repair-pct-input",
+                            type="number",
+                            value=DEFAULTS["monthly_repair_pct"] * 100,
+                            min=0,
+                            max=1,
+                            step=0.001,
+                        ),
+                    ], className="param-input"),
+                    html.Div([
+                        html.Label("Maintenance Inflation (%)"),
+                        dcc.Input(
+                            id="maint-inflation-input",
+                            type="number",
+                            value=DEFAULTS["maintenance_inflation"] * 100,
+                            min=0,
+                            max=10,
+                            step=0.1,
+                        ),
+                    ], className="param-input"),
+                ], className="param-group"),
+
+            ], className="analysis-sidebar"),
+
+            # Main chart area
+            html.Div([
+                # Chart type tabs
+                html.Div([
+                    html.Button("Home Value", id="tab-value", className="chart-tab active", n_clicks=0),
+                    html.Button("Equity", id="tab-equity", className="chart-tab", n_clicks=0),
+                    html.Button("Cash Invested", id="tab-cash", className="chart-tab", n_clicks=0),
+                    html.Button("Annual Costs", id="tab-costs", className="chart-tab", n_clicks=0),
+                    html.Button("ROI", id="tab-roi", className="chart-tab", n_clicks=0),
+                ], className="chart-tabs"),
+
+                # Store for active tab
+                dcc.Store(id="active-chart-tab", data="value"),
+
+                # Summary cards
+                html.Div(id="summary-cards", className="summary-cards"),
+
+                # Chart
+                dcc.Graph(id="analysis-chart", config={"displayModeBar": True}),
+
+            ], className="analysis-main"),
+        ], className="analysis-container"),
+    ])
+
+
 def register_callbacks(app: dash.Dash):
     """Register all Dash callbacks."""
 
@@ -498,6 +867,8 @@ def register_callbacks(app: dash.Dash):
     )
     def display_page(pathname):
         """Route to the appropriate page based on URL."""
+        if pathname == "/analysis":
+            return create_cost_analysis_layout()
         if pathname and pathname.startswith("/home/"):
             try:
                 home_id = int(pathname.split("/")[-1])
@@ -690,3 +1061,270 @@ def register_callbacks(app: dash.Dash):
             zoom = 5
 
         return [center_lat, center_lng], zoom
+
+    # Cost Analysis Page Callbacks
+
+    @app.callback(
+        Output("years-display", "children"),
+        Input("years-slider", "value"),
+        prevent_initial_call=False,
+    )
+    def update_years_display(years):
+        """Update the years display text."""
+        if years is None:
+            return "30 years"
+        return f"{years} years"
+
+    @app.callback(
+        Output("active-chart-tab", "data"),
+        [
+            Input("tab-value", "n_clicks"),
+            Input("tab-equity", "n_clicks"),
+            Input("tab-cash", "n_clicks"),
+            Input("tab-costs", "n_clicks"),
+            Input("tab-roi", "n_clicks"),
+        ],
+        prevent_initial_call=True,
+    )
+    def update_active_tab(value_clicks, equity_clicks, cash_clicks, costs_clicks, roi_clicks):
+        """Update the active chart tab based on button clicks."""
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return "value"
+        button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        tab_map = {
+            "tab-value": "value",
+            "tab-equity": "equity",
+            "tab-cash": "cash",
+            "tab-costs": "costs",
+            "tab-roi": "roi",
+        }
+        return tab_map.get(button_id, "value")
+
+    @app.callback(
+        [
+            Output("tab-value", "className"),
+            Output("tab-equity", "className"),
+            Output("tab-cash", "className"),
+            Output("tab-costs", "className"),
+            Output("tab-roi", "className"),
+        ],
+        Input("active-chart-tab", "data"),
+    )
+    def update_tab_styles(active_tab):
+        """Update tab button styles based on active tab."""
+        tabs = ["value", "equity", "cash", "costs", "roi"]
+        return [
+            "chart-tab active" if tab == active_tab else "chart-tab"
+            for tab in tabs
+        ]
+
+    @app.callback(
+        [Output("analysis-chart", "figure"), Output("summary-cards", "children")],
+        [
+            Input("active-chart-tab", "data"),
+            Input("years-slider", "value"),
+            Input("down-payment-input", "value"),
+            Input("interest-rate-input", "value"),
+            Input("loan-term-input", "value"),
+            Input("purchase-fees-input", "value"),
+            Input("growth-rate-input", "value"),
+            Input("repair-pct-input", "value"),
+            Input("maint-inflation-input", "value"),
+            Input({"type": "home-checkbox", "index": ALL}, "value"),
+        ],
+        prevent_initial_call=False,
+    )
+    def update_analysis_chart(
+        active_tab,
+        years,
+        down_payment_pct,
+        interest_rate,
+        loan_term,
+        purchase_fees,
+        growth_rate,
+        repair_pct,
+        maint_inflation,
+        home_selections,
+    ):
+        """Update the analysis chart and summary cards based on selections."""
+        # Get selected home IDs from the checkbox values
+        selected_ids = []
+        if home_selections:
+            for selection in home_selections:
+                if selection:
+                    selected_ids.extend(selection)
+
+        # Create empty figure if no homes selected
+        if not selected_ids:
+            fig = go.Figure()
+            fig.update_layout(
+                title="Select homes to compare",
+                xaxis_title="Year",
+                yaxis_title="Value ($)",
+                template="plotly_white",
+                height=500,
+            )
+            return fig, html.Div("Select one or more homes to see analysis", className="no-homes-message")
+
+        # Get home data
+        homes_data = []
+        for home_id in selected_ids:
+            home = get_home_by_id(home_id)
+            if home and home.get("price"):
+                homes_data.append(home)
+
+        if not homes_data:
+            fig = go.Figure()
+            fig.update_layout(title="No valid homes selected")
+            return fig, []
+
+        # Convert inputs to proper values (handle None)
+        years = years or 30
+        down_pct = (down_payment_pct or 20) / 100
+        int_rate = (interest_rate or 4.79) / 100
+        loan_yrs = loan_term or 30
+        fees = purchase_fees or 35000
+        growth = (growth_rate or 3) / 100
+        repair = (repair_pct or 0.03) / 100
+        maint_inf = (maint_inflation or 2) / 100
+
+        # Run analysis for each home
+        all_results = {}
+        colors = ["#667eea", "#f093fb", "#f5576c", "#4facfe", "#43e97b", "#fa709a"]
+
+        for i, home in enumerate(homes_data):
+            # Use home-specific values if available, otherwise use global params
+            home_tax_rate = home.get("property_tax_rate")
+            # If tax rate looks like a dollar amount (> 1), convert to rate
+            if home_tax_rate and home_tax_rate > 1:
+                home_tax_rate = home_tax_rate / home["price"]
+            home_tax_rate = home_tax_rate or DEFAULTS["property_tax_rate"]
+
+            home_hoa = home.get("hoa_monthly") or DEFAULTS["hoa_monthly"]
+
+            params = CostAnalysisParams(
+                home_price=home["price"],
+                down_payment_pct=down_pct,
+                purchase_fees=fees,
+                property_tax_rate=home_tax_rate,
+                monthly_repair_pct=repair,
+                hoa_monthly=home_hoa,
+                annual_growth_rate=growth,
+                interest_rate=int_rate,
+                loan_term_years=loan_yrs,
+                maintenance_inflation=maint_inf,
+            )
+
+            results = run_analysis(params, years)
+            label = f"{home.get('address', 'Unknown')[:30]}"
+            all_results[label] = {
+                "results": results,
+                "color": colors[i % len(colors)],
+                "home": home,
+            }
+
+        # Create figure based on active tab
+        fig = go.Figure()
+
+        chart_configs = {
+            "value": {
+                "title": "Home Value Over Time",
+                "yaxis": "Value ($)",
+                "field": "home_value",
+            },
+            "equity": {
+                "title": "Equity Over Time",
+                "yaxis": "Equity ($)",
+                "field": "equity",
+            },
+            "cash": {
+                "title": "Total Cash Invested Over Time",
+                "yaxis": "Cash Invested ($)",
+                "field": "total_cash_invested",
+            },
+            "costs": {
+                "title": "Annual Cash Outflow Over Time",
+                "yaxis": "Annual Costs ($)",
+                "field": "annual_cash_outflow",
+            },
+            "roi": {
+                "title": "Return on Investment Over Time",
+                "yaxis": "ROI (Equity / Cash Invested)",
+                "field": "roi",
+            },
+        }
+
+        config = chart_configs.get(active_tab, chart_configs["value"])
+
+        for label, data in all_results.items():
+            results = data["results"]
+            color = data["color"]
+
+            x_values = [r.year for r in results]
+            if config["field"] == "roi":
+                y_values = [r.roi if r.roi else 0 for r in results]
+            else:
+                y_values = [getattr(r, config["field"]) for r in results]
+
+            fig.add_trace(
+                go.Scatter(
+                    x=x_values,
+                    y=y_values,
+                    mode="lines",
+                    name=label,
+                    line=dict(color=color, width=2),
+                    hovertemplate=f"{label}<br>Year %{{x}}<br>{config['yaxis']}: %{{y:,.0f}}<extra></extra>"
+                    if config["field"] != "roi"
+                    else f"{label}<br>Year %{{x}}<br>ROI: %{{y:.2f}}x<extra></extra>",
+                )
+            )
+
+        fig.update_layout(
+            title=config["title"],
+            xaxis_title="Year",
+            yaxis_title=config["yaxis"],
+            template="plotly_white",
+            height=500,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified",
+        )
+
+        if config["field"] != "roi":
+            fig.update_yaxes(tickformat="$,.0f")
+
+        # Create summary cards for the final year
+        summary_cards = []
+        for label, data in all_results.items():
+            final = data["results"][-1]
+            home = data["home"]
+            color = data["color"]
+
+            price_str = f"${home['price']:,.0f}"
+            equity_str = f"${final.equity:,.0f}"
+            roi_str = f"{final.roi:.2f}x" if final.roi else "N/A"
+            cash_str = f"${final.total_cash_invested:,.0f}"
+
+            summary_cards.append(
+                html.Div([
+                    html.Div(label[:25], style={"fontWeight": "600", "color": color, "marginBottom": "10px", "fontSize": "0.85rem"}),
+                    html.Div([
+                        html.Div("Price", className="label"),
+                        html.Div(price_str, className="value"),
+                    ]),
+                    html.Div([
+                        html.Div(f"Equity (Yr {years})", className="label"),
+                        html.Div(equity_str, className="value"),
+                    ]),
+                    html.Div([
+                        html.Div("ROI", className="label"),
+                        html.Div(roi_str, className="value"),
+                    ]),
+                    html.Div([
+                        html.Div("Total Invested", className="label"),
+                        html.Div(cash_str, className="value"),
+                    ]),
+                ], className="summary-card")
+            )
+
+        return fig, summary_cards

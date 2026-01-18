@@ -298,6 +298,16 @@ class HomeDataParser:
         if "garage_spaces" not in data:
             data["garage_spaces"] = self._extract_garage_spaces(html_content)
 
+        # Extract cost analysis fields
+        if "property_tax_rate" not in data:
+            data["property_tax_rate"] = self._extract_property_tax_rate(soup, html_content)
+
+        if "hoa_monthly" not in data:
+            data["hoa_monthly"] = self._extract_hoa_monthly(soup, html_content)
+
+        if "estimated_repair_pct" not in data:
+            data["estimated_repair_pct"] = None  # Default, user can override
+
         return data
 
     def _extract_address(self, soup: BeautifulSoup, html_content: str) -> Optional[str]:
@@ -648,6 +658,72 @@ class HomeDataParser:
                 count = int(match.group(1))
                 if 0 < count < 20:  # Sanity check
                     return count
+
+        return None
+
+    def _extract_property_tax_rate(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+        """Extract property tax rate from HTML.
+
+        Returns the rate as a decimal (e.g., 0.012 for 1.2%).
+        If an annual dollar amount is found with a price, calculates the rate.
+        """
+        # Try to find property tax as annual amount
+        patterns = [
+            r"(?:property\s*)?tax(?:es)?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:year|yr|annual))?",
+            r"annual\s*(?:property\s*)?tax(?:es)?[:\s]*\$?\s*([\d,]+)",
+            r"\$\s*([\d,]+)\s*/\s*(?:year|yr)\s*(?:property\s*)?tax",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                try:
+                    tax_amount = float(match.group(1).replace(",", ""))
+                    # Sanity check: annual tax should be between $500 and $100,000
+                    if 500 <= tax_amount <= 100000:
+                        # Return as placeholder - will need home price to calculate rate
+                        # For now, store raw amount and we'll handle conversion in analysis
+                        return tax_amount
+                except ValueError:
+                    continue
+
+        # Try to find tax rate directly as percentage
+        rate_patterns = [
+            r"(?:property\s*)?tax\s*rate[:\s]*([\d.]+)\s*%",
+            r"([\d.]+)\s*%\s*(?:property\s*)?tax\s*rate",
+        ]
+
+        for pattern in rate_patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                try:
+                    rate = float(match.group(1)) / 100  # Convert percentage to decimal
+                    if 0.001 <= rate <= 0.05:  # 0.1% to 5% is reasonable
+                        return rate
+                except ValueError:
+                    continue
+
+        return None
+
+    def _extract_hoa_monthly(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+        """Extract monthly HOA/condo fees from HTML."""
+        patterns = [
+            r"(?:hoa|condo|strata)\s*(?:fee|dues)?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
+            r"\$\s*([\d,]+)\s*/\s*(?:month|mo)\s*(?:hoa|condo|strata)",
+            r"(?:monthly\s*)?(?:hoa|condo|strata)\s*(?:fee|dues)[:\s]*\$?\s*([\d,]+)",
+            r"maintenance\s*fee[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                try:
+                    amount = float(match.group(1).replace(",", ""))
+                    # Sanity check: monthly HOA should be between $50 and $5,000
+                    if 50 <= amount <= 5000:
+                        return amount
+                except ValueError:
+                    continue
 
         return None
 

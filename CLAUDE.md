@@ -11,10 +11,11 @@ vibe-house-shopping/
 │   ├── database.py       # SQLite models and database utilities (SQLAlchemy)
 │   ├── parser.py         # HTML parser for extracting home data (BeautifulSoup)
 │   ├── dash_app.py       # Dash application with map visualization (Plotly Dash + Leaflet)
+│   ├── cost_analysis.py  # Home cost analysis calculations
 │   └── watcher.py        # File watcher for import directory (watchdog)
 ├── data/                 # SQLite database (homes.db) stored here
 ├── import/               # Drop HTML files here for ingestion
-├── requirements.txt      # Python dependencies
+├── pyproject.toml        # Python dependencies
 ├── run.py                # Main entry point
 └── CLAUDE.md             # This file
 ```
@@ -48,9 +49,17 @@ The app runs at http://localhost:8050
    - Sortable/filterable data table
    - Auto-refresh every 30 seconds
 
+6. **Cost Analysis**: The `/analysis` page provides financial projections:
+   - Select one or more homes to compare
+   - Adjustable parameters: down payment, interest rate, loan term, etc.
+   - Charts for: Home Value, Equity, Cash Invested, Annual Costs, ROI
+   - Time horizon slider (5-30 years)
+   - Summary cards with key metrics at the selected time horizon
+
 ## Key Dependencies
 
 - **dash** / **dash-leaflet**: Web framework and map component
+- **plotly**: Charting library for cost analysis graphs
 - **sqlalchemy**: Database ORM
 - **beautifulsoup4** / **lxml**: HTML parsing
 - **watchdog**: File system monitoring
@@ -79,6 +88,9 @@ The app runs at http://localhost:8050
 | source_file   | String   | Name of imported HTML file     |
 | imported_at   | DateTime | When the record was created    |
 | raw_html      | Text     | First 50k chars of source HTML |
+| property_tax_rate | Float | Annual property tax rate (e.g., 0.012) |
+| hoa_monthly   | Float    | Monthly HOA/condo fees         |
+| estimated_repair_pct | Float | Monthly repair estimate as % of value |
 
 ## Extending the Parser
 
@@ -104,3 +116,23 @@ Visit http://localhost:8050 and check the terminal for any callback errors.
 - Files are processed with a 0.5s delay to ensure complete writes
 - Geocoding may fail for ambiguous addresses; coordinates will be None
 - The map auto-centers on the average location of all homes with coordinates
+
+## Cost Analysis Module
+
+The `app/cost_analysis.py` module implements mortgage and home ownership cost calculations:
+
+### Default Parameters (from spreadsheet)
+- Down payment: 20%
+- Interest rate: 4.79%
+- Loan term: 30 years
+- Property tax rate: 1.2%
+- Monthly repair estimate: 0.03% of home value
+- Annual appreciation: 3%
+- Maintenance inflation: 2%
+
+### Calculations
+- **Home Value**: Appreciates at the annual growth rate
+- **Equity**: Home value minus remaining loan balance
+- **Total Cash Invested**: Cumulative of down payment, fees, mortgage payments, taxes, repairs, maintenance
+- **Annual Cash Outflow**: Taxes + repairs + maintenance (excluding mortgage principal)
+- **ROI**: Equity divided by total cash invested

@@ -403,7 +403,7 @@ def create_app() -> dash.Dash:
                 }
                 .summary-cards {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
                     gap: 15px;
                     margin-bottom: 20px;
                 }
@@ -412,21 +412,30 @@ def create_app() -> dash.Dash:
                     padding: 15px;
                     border-radius: 8px;
                 }
-                .summary-card .stat-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 4px 0;
+                .summary-card .card-title {
+                    font-weight: 600;
+                    margin-bottom: 10px;
+                    font-size: 0.85rem;
                 }
-                .summary-card .label {
+                .summary-card table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .summary-card td {
+                    padding: 4px 0;
+                    border: none;
+                }
+                .summary-card td.label {
                     font-size: 0.8rem;
                     color: #666;
                     text-transform: uppercase;
+                    text-align: left;
                 }
-                .summary-card .value {
+                .summary-card td.value {
                     font-size: 1rem;
                     font-weight: 600;
                     color: #333;
+                    text-align: right;
                 }
                 .no-homes-message {
                     padding: 40px;
@@ -1321,23 +1330,15 @@ def register_callbacks(app: dash.Dash):
 
             summary_cards.append(
                 html.Div([
-                    html.Div(label[:25], style={"fontWeight": "600", "color": color, "marginBottom": "10px", "fontSize": "0.85rem"}),
-                    html.Div([
-                        html.Span("Price", className="label"),
-                        html.Span(price_str, className="value"),
-                    ], className="stat-row"),
-                    html.Div([
-                        html.Span(f"Equity (Yr {years})", className="label"),
-                        html.Span(equity_str, className="value"),
-                    ], className="stat-row"),
-                    html.Div([
-                        html.Span("ROI", className="label"),
-                        html.Span(roi_str, className="value"),
-                    ], className="stat-row"),
-                    html.Div([
-                        html.Span("Total Invested", className="label"),
-                        html.Span(cash_str, className="value"),
-                    ], className="stat-row"),
+                    html.Div(label[:25], className="card-title", style={"color": color}),
+                    html.Table([
+                        html.Tbody([
+                            html.Tr([html.Td("Price", className="label"), html.Td(price_str, className="value")]),
+                            html.Tr([html.Td(f"Equity (Yr {years})", className="label"), html.Td(equity_str, className="value")]),
+                            html.Tr([html.Td("ROI", className="label"), html.Td(roi_str, className="value")]),
+                            html.Tr([html.Td("Total Invested", className="label"), html.Td(cash_str, className="value")]),
+                        ])
+                    ]),
                 ], className="summary-card")
             )
 

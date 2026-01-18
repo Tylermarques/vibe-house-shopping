@@ -1,4 +1,8 @@
 <p align="center">
+  WARNING - This app is ~~vibe based~~ and I take no responsibility for this code what so ever. I haven't even opened the files. Use at your own risk, you have been warned.
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/python-3.14+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.14+"/>
   <img src="https://img.shields.io/badge/Dash-2.14+-00ADD8?style=for-the-badge&logo=plotly&logoColor=white" alt="Dash"/>
   <img src="https://img.shields.io/badge/SQLite-3-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite"/>
@@ -39,9 +43,9 @@
 
 House hunting is overwhelming. Dozens of browser tabs, spreadsheets that never get updated, and that nagging feeling you missed something important. **Vibe House Shopping** fixes all of that.
 
-> "Finally, a tool that lets me compare homes the way I actually think about them." — *Future You*
+> "Finally, a tool that lets me compare homes the way I actually think about them." — _Future You_
 
-Drop saved HTML listings into a folder. Watch them appear on an interactive map. Run financial projections to see the *real* cost of ownership. Make decisions with confidence.
+Drop saved HTML listings into a folder. Watch them appear on an interactive map. Run financial projections to see the _real_ cost of ownership. Make decisions with confidence.
 
 ---
 
@@ -52,6 +56,7 @@ Drop saved HTML listings into a folder. Watch them appear on an interactive map.
 <td width="50%">
 
 ### 🗺️ Interactive Map View
+
 - Leaflet-powered map with property markers
 - Click-to-view popups with key details
 - Auto-centers on your properties
@@ -61,6 +66,7 @@ Drop saved HTML listings into a folder. Watch them appear on an interactive map.
 <td width="50%">
 
 ### 📊 Cost Analysis Dashboard
+
 - Side-by-side home comparisons
 - 5-30 year financial projections
 - ROI, equity, and cash flow charts
@@ -72,6 +78,7 @@ Drop saved HTML listings into a folder. Watch them appear on an interactive map.
 <td width="50%">
 
 ### 🔄 Smart Import System
+
 - Drop HTML files → instant import
 - File watcher with auto-processing
 - Multi-site parsing strategies
@@ -81,6 +88,7 @@ Drop saved HTML listings into a folder. Watch them appear on an interactive map.
 <td width="50%">
 
 ### 🏠 Complete Property Data
+
 - Price, beds, baths, sqft
 - Property taxes & HOA fees
 - Lot size and year built
@@ -126,11 +134,9 @@ Get up and running in 60 seconds:
 git clone https://github.com/yourusername/vibe-house-shopping.git
 cd vibe-house-shopping
 
-# Install dependencies
-pip install -e .
+# Install and run
+uv run python run.py
 
-# Run the app
-python run.py
 ```
 
 Open [http://localhost:8050](http://localhost:8050) and start dropping HTML files into the `import/` folder.
@@ -141,25 +147,24 @@ Open [http://localhost:8050](http://localhost:8050) and start dropping HTML file
 
 ### Prerequisites
 
-- Python 3.14 or higher
-- pip or uv package manager
+- Python 3.12 or higher
+- uv package manager
 
 ### Standard Installation
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### Development Installation
 
 ```bash
-pip install -e ".[dev]"
+uv sync --group dev
 ```
 
 ### Using uv (Recommended)
 
 ```bash
-uv pip install -e .
 uv run python run.py
 ```
 
@@ -171,7 +176,7 @@ uv run python run.py
 
 1. **Save Listings**: Save property pages as HTML from any real estate site
 2. **Drop Files**: Move HTML files into the `import/` directory
-3. **View Map**: Open http://localhost:8050 to see properties on the map
+3. **View Map**: Open <http://localhost:8050> to see properties on the map
 4. **Analyze Costs**: Navigate to `/analysis` for financial projections
 
 ### Importing Properties
@@ -189,15 +194,15 @@ Supported sources include Zillow, Redfin, Realtor.com, and most real estate site
 
 ### Cost Analysis Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| Down Payment | 20% | Percentage of home price |
-| Interest Rate | 4.79% | Annual mortgage rate |
-| Loan Term | 30 years | Mortgage duration |
-| Property Tax | 1.2% | Annual tax rate |
-| Repairs | 0.03%/mo | Monthly repair budget |
-| Appreciation | 3%/yr | Home value growth |
-| Maintenance Inflation | 2%/yr | Cost increase rate |
+| Parameter             | Default  | Description              |
+| --------------------- | -------- | ------------------------ |
+| Down Payment          | 20%      | Percentage of home price |
+| Interest Rate         | 4.79%    | Annual mortgage rate     |
+| Loan Term             | 30 years | Mortgage duration        |
+| Property Tax          | 1.2%     | Annual tax rate          |
+| Repairs               | 0.03%/mo | Monthly repair budget    |
+| Appreciation          | 3%/yr    | Home value growth        |
+| Maintenance Inflation | 2%/yr    | Cost increase rate       |
 
 ---
 
@@ -317,7 +322,7 @@ SITE_SELECTORS = [
 ]
 ```
 
-3. Test with sample files from the site
+1. Test with sample files from the site
 
 ### Running in Development
 
@@ -327,21 +332,6 @@ uv run python run.py
 
 # Check for errors at http://localhost:8050
 ```
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Dark mode support
-- [ ] Export to CSV/Excel
-- [ ] Neighborhood data integration
-- [ ] School district overlays
-- [ ] Commute time calculations
-- [ ] Multi-user support
-- [ ] Mobile-responsive design
-- [ ] Webhook notifications
-
----
 
 ## 🤝 Contributing
 
@@ -381,7 +371,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ---
 
 <p align="center">
-  Made with ❤️ by house hunters, for house hunters
+  Made with ❤️Claude, Vibed to hell and back
   <br>
   <br>
   <a href="#-features">Back to top</a>

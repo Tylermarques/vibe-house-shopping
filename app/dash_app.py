@@ -508,10 +508,19 @@ def register_callbacks(app: dash.Dash):
 
     @app.callback(
         Output("homes-data", "data"),
-        [Input("refresh-button", "n_clicks"), Input("auto-refresh", "n_intervals")],
+        Input("auto-refresh", "n_intervals"),
     )
-    def refresh_data(n_clicks, n_intervals):
+    def refresh_data(n_intervals):
         """Refresh home data from the database."""
+        return get_all_homes()
+
+    @app.callback(
+        Output("homes-data", "data", allow_duplicate=True),
+        Input("refresh-button", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def refresh_data_button(n_clicks):
+        """Refresh home data when button is clicked."""
         return get_all_homes()
 
     @app.callback(

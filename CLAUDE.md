@@ -88,6 +88,16 @@ The parser in `app/parser.py` uses a generic approach. To add support for a spec
 2. Add regex patterns that match the site's HTML structure
 3. The parser tries multiple strategies and uses the first successful match
 
+## Development
+
+After making changes to the Dash application, always run the app to check for errors:
+
+```bash
+uv run python run.py
+```
+
+Visit http://localhost:8050 and check the terminal for any callback errors.
+
 ## Notes
 
 - The import watcher processes existing files on startup

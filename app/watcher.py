@@ -36,10 +36,12 @@ class HTMLFileHandler(FileSystemEventHandler):
         if file_path.suffix.lower() not in [".html", ".htm"]:
             return
 
-        # Wait a moment for the file to be fully written
-        time.sleep(0.5)
-
         with self.processing_lock:
+            # Wait a moment for the file to be fully written
+            # This sleep is inside the lock to prevent race conditions where
+            # multiple files arriving in quick succession could be processed
+            # simultaneously before the lock is acquired
+            time.sleep(0.5)
             try:
                 logger.info(f"Processing file: {file_path.name}")
                 data = self.parser.parse_file(file_path)

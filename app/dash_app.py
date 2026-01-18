@@ -1041,14 +1041,18 @@ def register_callbacks(app: dash.Dash):
         return f"{count} home{'s' if count != 1 else ''} in database"
 
     @app.callback(
-        Output("home-map", "center"),
-        Output("home-map", "zoom"),
+        Output("home-map", "viewport"),
         Input("homes-data", "data"),
     )
     def update_map_view(homes_data):
-        """Update map center and zoom based on home locations."""
+        """Update map viewport based on home locations.
+
+        Note: We use the 'viewport' property instead of 'center'/'zoom' because
+        dash-leaflet's center and zoom props are immutable after initial render.
+        The viewport property allows dynamic updates after the map is mounted.
+        """
         if not homes_data:
-            return [39.8283, -98.5795], 4  # Default: center of US
+            return dict(center=[39.8283, -98.5795], zoom=4, transition="flyTo")
 
         # Get homes with coordinates
         homes_with_coords = [
@@ -1056,7 +1060,7 @@ def register_callbacks(app: dash.Dash):
         ]
 
         if not homes_with_coords:
-            return [39.8283, -98.5795], 4
+            return dict(center=[39.8283, -98.5795], zoom=4, transition="flyTo")
 
         # Calculate center
         lats = [h["latitude"] for h in homes_with_coords]
@@ -1085,7 +1089,7 @@ def register_callbacks(app: dash.Dash):
         else:
             zoom = 5
 
-        return [center_lat, center_lng], zoom
+        return dict(center=[center_lat, center_lng], zoom=zoom, transition="flyTo")
 
     # Cost Analysis Page Callbacks
 

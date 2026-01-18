@@ -359,6 +359,14 @@ def create_app() -> dash.Dash:
                     align-items: center;
                     padding: 8px 0;
                     border-bottom: 1px solid #f0f0f0;
+                    overflow: hidden;
+                }
+                .home-checkbox-item .home-link {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    flex: 1;
+                    min-width: 0;
                 }
                 .home-checkbox-item:last-child {
                     border-bottom: none;

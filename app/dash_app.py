@@ -27,6 +27,8 @@ def create_app() -> dash.Dash:
             html.Div(id="page-content"),
             # Hidden div for storing data
             dcc.Store(id="homes-data", data=get_all_homes()),
+            # Store for current theme (light or dark)
+            dcc.Store(id="theme-store", data="light"),
             # Interval for auto-refresh (every 30 seconds)
             dcc.Interval(id="auto-refresh", interval=30000, n_intervals=0),
         ],
@@ -43,6 +45,63 @@ def create_app() -> dash.Dash:
             {%favicon%}
             {%css%}
             <style>
+                /* CSS Variables for theming */
+                :root {
+                    /* Light mode (default) */
+                    --bg-primary: #f5f5f5;
+                    --bg-secondary: #ffffff;
+                    --bg-tertiary: #f8f9fa;
+                    --bg-hover: #f0f0f0;
+                    --bg-alt: #fafafa;
+                    --text-primary: #333333;
+                    --text-secondary: #666666;
+                    --text-tertiary: #888888;
+                    --text-description: #444444;
+                    --border-primary: #eeeeee;
+                    --border-secondary: #dddddd;
+                    --border-tertiary: #dee2e6;
+                    --border-light: #f0f0f0;
+                    --accent-primary: #667eea;
+                    --accent-secondary: #764ba2;
+                    --accent-hover: #5a6fd6;
+                    --shadow-color: rgba(0, 0, 0, 0.1);
+                    --shadow-light: rgba(0, 0, 0, 0.05);
+                    --popup-text: #2d3748;
+                    --table-footer-bg: #e8e8e8;
+                    --table-footer-border: #cccccc;
+                    --tooltip-bg: #333333;
+                    --tooltip-text: #ffffff;
+                    --chart-template: plotly_white;
+                }
+
+                [data-theme="dark"] {
+                    /* Dark mode */
+                    --bg-primary: #1a1a2e;
+                    --bg-secondary: #16213e;
+                    --bg-tertiary: #1f2940;
+                    --bg-hover: #253550;
+                    --bg-alt: #1c2a3f;
+                    --text-primary: #e8e8e8;
+                    --text-secondary: #b0b0b0;
+                    --text-tertiary: #888888;
+                    --text-description: #c0c0c0;
+                    --border-primary: #2a3a50;
+                    --border-secondary: #3a4a60;
+                    --border-tertiary: #3a4a60;
+                    --border-light: #2a3a50;
+                    --accent-primary: #7c8ff8;
+                    --accent-secondary: #9b6dd4;
+                    --accent-hover: #8a9cf8;
+                    --shadow-color: rgba(0, 0, 0, 0.3);
+                    --shadow-light: rgba(0, 0, 0, 0.2);
+                    --popup-text: #e8e8e8;
+                    --table-footer-bg: #253550;
+                    --table-footer-border: #3a4a60;
+                    --tooltip-bg: #e8e8e8;
+                    --tooltip-text: #1a1a2e;
+                    --chart-template: plotly_dark;
+                }
+
                 * {
                     box-sizing: border-box;
                     margin: 0;
@@ -50,8 +109,9 @@ def create_app() -> dash.Dash:
                 }
                 body {
                     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    background-color: #f5f5f5;
-                    color: #333;
+                    background-color: var(--bg-primary);
+                    color: var(--text-primary);
+                    transition: background-color 0.3s ease, color 0.3s ease;
                 }
                 .app-container {
                     max-width: 1800px;
@@ -66,7 +126,7 @@ def create_app() -> dash.Dash:
                     margin-bottom: 20px;
                 }
                 .refresh-button {
-                    background-color: #667eea;
+                    background-color: var(--accent-primary);
                     color: white;
                     border: none;
                     padding: 12px 24px;
@@ -76,11 +136,11 @@ def create_app() -> dash.Dash:
                     transition: background-color 0.2s;
                 }
                 .refresh-button:hover {
-                    background-color: #5a6fd6;
+                    background-color: var(--accent-hover);
                 }
                 .home-count {
                     font-size: 1.1rem;
-                    color: #666;
+                    color: var(--text-secondary);
                 }
                 .main-content {
                     display: flex;
@@ -89,15 +149,16 @@ def create_app() -> dash.Dash:
                     width: 100%;
                 }
                 .map-container, .table-container {
-                    background: white;
+                    background: var(--bg-secondary);
                     padding: 25px;
                     border-radius: 12px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 10px var(--shadow-color);
                     width: 100%;
+                    transition: background-color 0.3s ease, box-shadow 0.3s ease;
                 }
                 .map-container h2, .table-container h2 {
                     margin-bottom: 15px;
-                    color: #333;
+                    color: var(--text-primary);
                 }
                 .leaflet-popup-content {
                     font-family: system-ui, -apple-system, sans-serif;
@@ -106,12 +167,12 @@ def create_app() -> dash.Dash:
                     line-height: 1.6;
                 }
                 .popup-content strong {
-                    color: #667eea;
+                    color: var(--accent-primary);
                 }
                 .popup-price {
                     font-size: 1.2rem;
                     font-weight: bold;
-                    color: #2d3748;
+                    color: var(--popup-text);
                     margin-bottom: 8px;
                 }
                 .popup-address {
@@ -119,11 +180,11 @@ def create_app() -> dash.Dash:
                     margin-bottom: 8px;
                 }
                 .popup-details {
-                    color: #666;
+                    color: var(--text-secondary);
                     font-size: 0.9rem;
                 }
                 .home-link {
-                    color: #667eea;
+                    color: var(--accent-primary);
                     text-decoration: none;
                     cursor: pointer;
                 }
@@ -133,7 +194,7 @@ def create_app() -> dash.Dash:
                 .back-link {
                     display: inline-block;
                     margin-bottom: 20px;
-                    color: #667eea;
+                    color: var(--accent-primary);
                     text-decoration: none;
                     font-size: 1rem;
                 }
@@ -141,12 +202,13 @@ def create_app() -> dash.Dash:
                     text-decoration: underline;
                 }
                 .detail-container {
-                    background: white;
+                    background: var(--bg-secondary);
                     padding: 30px 40px;
                     border-radius: 12px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 10px var(--shadow-color);
                     margin-bottom: 20px;
                     width: 100%;
+                    transition: background-color 0.3s ease, box-shadow 0.3s ease;
                 }
                 .detail-header {
                     display: flex;
@@ -158,17 +220,17 @@ def create_app() -> dash.Dash:
                 }
                 .detail-title {
                     font-size: 1.8rem;
-                    color: #333;
+                    color: var(--text-primary);
                     margin-bottom: 8px;
                 }
                 .detail-location {
                     font-size: 1.1rem;
-                    color: #666;
+                    color: var(--text-secondary);
                 }
                 .detail-price {
                     font-size: 2.2rem;
                     font-weight: bold;
-                    color: #667eea;
+                    color: var(--accent-primary);
                 }
                 .detail-grid {
                     display: grid;
@@ -178,12 +240,13 @@ def create_app() -> dash.Dash:
                 }
                 .detail-item {
                     padding: 15px;
-                    background: #f8f9fa;
+                    background: var(--bg-tertiary);
                     border-radius: 8px;
+                    transition: background-color 0.3s ease;
                 }
                 .detail-label {
                     font-size: 0.85rem;
-                    color: #666;
+                    color: var(--text-secondary);
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
                     margin-bottom: 5px;
@@ -191,21 +254,21 @@ def create_app() -> dash.Dash:
                 .detail-value {
                     font-size: 1.2rem;
                     font-weight: 600;
-                    color: #333;
+                    color: var(--text-primary);
                 }
                 .detail-section {
                     margin-bottom: 30px;
                 }
                 .detail-section h3 {
                     font-size: 1.2rem;
-                    color: #333;
+                    color: var(--text-primary);
                     margin-bottom: 15px;
                     padding-bottom: 10px;
-                    border-bottom: 2px solid #eee;
+                    border-bottom: 2px solid var(--border-primary);
                 }
                 .detail-description {
                     line-height: 1.7;
-                    color: #444;
+                    color: var(--text-description);
                     white-space: pre-wrap;
                 }
                 .detail-map {
@@ -215,10 +278,10 @@ def create_app() -> dash.Dash:
                 }
                 .detail-meta {
                     font-size: 0.9rem;
-                    color: #888;
+                    color: var(--text-tertiary);
                 }
                 .detail-meta a {
-                    color: #667eea;
+                    color: var(--accent-primary);
                     text-decoration: none;
                 }
                 .detail-meta a:hover {
@@ -230,7 +293,7 @@ def create_app() -> dash.Dash:
                 }
                 .not-found h2 {
                     font-size: 1.5rem;
-                    color: #666;
+                    color: var(--text-secondary);
                     margin-bottom: 20px;
                 }
                 table {
@@ -240,22 +303,22 @@ def create_app() -> dash.Dash:
                 th, td {
                     padding: 12px 10px;
                     text-align: left;
-                    border-bottom: 1px solid #eee;
+                    border-bottom: 1px solid var(--border-primary);
                 }
                 th {
-                    background-color: #f8f9fa;
+                    background-color: var(--bg-tertiary);
                     font-weight: 600;
-                    color: #333;
-                    border-bottom: 2px solid #dee2e6;
+                    color: var(--text-primary);
+                    border-bottom: 2px solid var(--border-tertiary);
                 }
                 tr:hover {
-                    background-color: #f8f9fa;
+                    background-color: var(--bg-tertiary);
                 }
                 tbody tr:nth-child(odd) {
-                    background-color: #fafafa;
+                    background-color: var(--bg-alt);
                 }
                 tbody tr:nth-child(odd):hover {
-                    background-color: #f0f0f0;
+                    background-color: var(--bg-hover);
                 }
                 /* Navigation styles */
                 .nav-bar {
@@ -265,9 +328,9 @@ def create_app() -> dash.Dash:
                     gap: 20px;
                     margin-bottom: 20px;
                     padding: 12px 20px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
                     border-radius: 8px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 5px var(--shadow-color);
                 }
                 .nav-title {
                     font-size: 1.4rem;
@@ -302,29 +365,31 @@ def create_app() -> dash.Dash:
                     width: 100%;
                 }
                 .analysis-sidebar {
-                    background: white;
+                    background: var(--bg-secondary);
                     padding: 20px;
                     border-radius: 12px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 10px var(--shadow-color);
                     height: fit-content;
                     position: sticky;
                     top: 20px;
+                    transition: background-color 0.3s ease, box-shadow 0.3s ease;
                 }
                 .analysis-main {
-                    background: white;
+                    background: var(--bg-secondary);
                     padding: 25px 30px;
                     border-radius: 12px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 10px var(--shadow-color);
                     min-width: 0;
                     overflow: hidden;
                     flex: 1;
+                    transition: background-color 0.3s ease, box-shadow 0.3s ease;
                 }
                 .param-group {
                     margin-bottom: 20px;
                 }
                 .param-group h4 {
                     margin-bottom: 10px;
-                    color: #333;
+                    color: var(--text-primary);
                     font-size: 0.95rem;
                 }
                 .param-input {
@@ -334,31 +399,36 @@ def create_app() -> dash.Dash:
                 }
                 .param-input label {
                     font-size: 0.85rem;
-                    color: #666;
+                    color: var(--text-secondary);
                     margin-bottom: 4px;
                 }
                 .param-input input, .param-input select {
                     padding: 8px 12px;
-                    border: 1px solid #ddd;
+                    border: 1px solid var(--border-secondary);
                     border-radius: 6px;
                     font-size: 0.95rem;
+                    background-color: var(--bg-secondary);
+                    color: var(--text-primary);
+                    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
                 }
                 .param-input input:focus, .param-input select:focus {
                     outline: none;
-                    border-color: #667eea;
+                    border-color: var(--accent-primary);
                 }
                 .home-checkbox-list {
                     max-height: 200px;
                     overflow-y: auto;
-                    border: 1px solid #eee;
+                    border: 1px solid var(--border-primary);
                     border-radius: 6px;
                     padding: 10px;
+                    background-color: var(--bg-secondary);
+                    transition: background-color 0.3s ease, border-color 0.3s ease;
                 }
                 .home-checkbox-item {
                     display: flex;
                     align-items: center;
                     padding: 8px 0;
-                    border-bottom: 1px solid #f0f0f0;
+                    border-bottom: 1px solid var(--border-light);
                     overflow: hidden;
                 }
                 .home-checkbox-item .home-link {
@@ -382,7 +452,7 @@ def create_app() -> dash.Dash:
                     display: flex;
                     gap: 5px;
                     margin-bottom: 20px;
-                    border-bottom: 2px solid #eee;
+                    border-bottom: 2px solid var(--border-primary);
                     padding-bottom: 0;
                 }
                 .chart-tab {
@@ -391,17 +461,17 @@ def create_app() -> dash.Dash:
                     background: none;
                     cursor: pointer;
                     font-size: 0.95rem;
-                    color: #666;
+                    color: var(--text-secondary);
                     border-bottom: 2px solid transparent;
                     margin-bottom: -2px;
                     transition: all 0.2s;
                 }
                 .chart-tab:hover {
-                    color: #667eea;
+                    color: var(--accent-primary);
                 }
                 .chart-tab.active {
-                    color: #667eea;
-                    border-bottom-color: #667eea;
+                    color: var(--accent-primary);
+                    border-bottom-color: var(--accent-primary);
                     font-weight: 500;
                 }
                 .slider-container {
@@ -410,7 +480,7 @@ def create_app() -> dash.Dash:
                 .slider-value {
                     text-align: center;
                     font-weight: 500;
-                    color: #667eea;
+                    color: var(--accent-primary);
                     margin-top: 5px;
                 }
                 .summary-cards {
@@ -420,9 +490,10 @@ def create_app() -> dash.Dash:
                     margin-bottom: 20px;
                 }
                 .summary-card {
-                    background: #f8f9fa;
+                    background: var(--bg-tertiary);
                     padding: 15px;
                     border-radius: 8px;
+                    transition: background-color 0.3s ease;
                 }
                 .summary-card .card-title {
                     font-weight: 600;
@@ -439,20 +510,20 @@ def create_app() -> dash.Dash:
                 }
                 .summary-card td.label {
                     font-size: 0.8rem;
-                    color: #666;
+                    color: var(--text-secondary);
                     text-transform: uppercase;
                     text-align: left;
                 }
                 .summary-card td.value {
                     font-size: 1rem;
                     font-weight: 600;
-                    color: #333;
+                    color: var(--text-primary);
                     text-align: right;
                 }
                 .no-homes-message {
                     padding: 40px;
                     text-align: center;
-                    color: #666;
+                    color: var(--text-secondary);
                 }
                 /* Data table styles */
                 .data-table-container {
@@ -461,7 +532,7 @@ def create_app() -> dash.Dash:
                 }
                 .data-table-container h3 {
                     margin-bottom: 15px;
-                    color: #333;
+                    color: var(--text-primary);
                     font-size: 1.1rem;
                 }
                 .data-table {
@@ -472,13 +543,13 @@ def create_app() -> dash.Dash:
                 .data-table th, .data-table td {
                     padding: 8px 12px;
                     text-align: right;
-                    border: 1px solid #e0e0e0;
+                    border: 1px solid var(--border-secondary);
                     white-space: nowrap;
                 }
                 .data-table th {
-                    background-color: #f8f9fa;
+                    background-color: var(--bg-tertiary);
                     font-weight: 600;
-                    color: #333;
+                    color: var(--text-primary);
                     position: sticky;
                     top: 0;
                 }
@@ -486,28 +557,28 @@ def create_app() -> dash.Dash:
                     text-align: left;
                     position: sticky;
                     left: 0;
-                    background-color: #f8f9fa;
+                    background-color: var(--bg-tertiary);
                     z-index: 1;
                 }
                 .data-table tbody tr:nth-child(odd) {
-                    background-color: #fafafa;
+                    background-color: var(--bg-alt);
                 }
                 .data-table tbody tr:nth-child(odd) td:first-child {
-                    background-color: #fafafa;
+                    background-color: var(--bg-alt);
                 }
                 .data-table tbody tr:hover {
-                    background-color: #f0f0f0;
+                    background-color: var(--bg-hover);
                 }
                 .data-table tbody tr:hover td:first-child {
-                    background-color: #f0f0f0;
+                    background-color: var(--bg-hover);
                 }
                 .data-table tfoot td {
                     font-weight: 600;
-                    background-color: #e8e8e8;
-                    border-top: 2px solid #ccc;
+                    background-color: var(--table-footer-bg);
+                    border-top: 2px solid var(--table-footer-border);
                 }
                 .data-table tfoot td:first-child {
-                    background-color: #e8e8e8;
+                    background-color: var(--table-footer-bg);
                 }
                 /* Tooltip styling for data cells */
                 .data-table td[title] {
@@ -520,8 +591,8 @@ def create_app() -> dash.Dash:
                     bottom: 100%;
                     left: 50%;
                     transform: translateX(-50%);
-                    background: #333;
-                    color: white;
+                    background: var(--tooltip-bg);
+                    color: var(--tooltip-text);
                     padding: 4px 8px;
                     border-radius: 4px;
                     font-size: 0.75rem;
@@ -536,7 +607,7 @@ def create_app() -> dash.Dash:
                     left: 50%;
                     transform: translateX(-50%) translateY(6px);
                     border: 5px solid transparent;
-                    border-top-color: #333;
+                    border-top-color: var(--tooltip-bg);
                     z-index: 10;
                 }
                 @media (max-width: 900px) {
@@ -547,7 +618,109 @@ def create_app() -> dash.Dash:
                         position: static;
                     }
                 }
+
+                /* Theme toggle button */
+                .theme-toggle {
+                    background: rgba(255, 255, 255, 0.2);
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 1.1rem;
+                    transition: background-color 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .theme-toggle:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
+                .theme-toggle .icon-sun,
+                .theme-toggle .icon-moon {
+                    display: none;
+                }
+                :root .theme-toggle .icon-moon {
+                    display: inline;
+                }
+                [data-theme="dark"] .theme-toggle .icon-sun {
+                    display: inline;
+                }
+                [data-theme="dark"] .theme-toggle .icon-moon {
+                    display: none;
+                }
+
+                /* Dash slider component styling for dark mode */
+                [data-theme="dark"] .rc-slider-track {
+                    background-color: var(--accent-primary);
+                }
+                [data-theme="dark"] .rc-slider-handle {
+                    border-color: var(--accent-primary);
+                    background-color: var(--bg-secondary);
+                }
+                [data-theme="dark"] .rc-slider-rail {
+                    background-color: var(--border-secondary);
+                }
+                [data-theme="dark"] .rc-slider-mark-text {
+                    color: var(--text-secondary);
+                }
+
+                /* Plotly chart dark mode styling */
+                [data-theme="dark"] .js-plotly-plot .plotly .modebar-btn path {
+                    fill: var(--text-secondary);
+                }
+                [data-theme="dark"] .js-plotly-plot .plotly .modebar-btn:hover path {
+                    fill: var(--text-primary);
+                }
             </style>
+            <script>
+                // Theme switching functionality
+                (function() {
+                    // Check for saved theme preference or default to system preference
+                    function getPreferredTheme() {
+                        const savedTheme = localStorage.getItem('theme');
+                        if (savedTheme) {
+                            return savedTheme;
+                        }
+                        // Check system preference
+                        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                            return 'dark';
+                        }
+                        return 'light';
+                    }
+
+                    // Apply theme to document
+                    function applyTheme(theme) {
+                        if (theme === 'dark') {
+                            document.documentElement.setAttribute('data-theme', 'dark');
+                        } else {
+                            document.documentElement.removeAttribute('data-theme');
+                        }
+                        localStorage.setItem('theme', theme);
+
+                        // Dispatch custom event for Plotly chart updates
+                        window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: theme } }));
+                    }
+
+                    // Toggle theme
+                    window.toggleTheme = function() {
+                        const currentTheme = document.documentElement.getAttribute('data-theme');
+                        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                        applyTheme(newTheme);
+                    };
+
+                    // Apply theme on page load
+                    applyTheme(getPreferredTheme());
+
+                    // Listen for system theme changes
+                    if (window.matchMedia) {
+                        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                            if (!localStorage.getItem('theme')) {
+                                applyTheme(e.matches ? 'dark' : 'light');
+                            }
+                        });
+                    }
+                })();
+            </script>
         </head>
         <body>
             {%app_entry%}
@@ -567,12 +740,21 @@ def create_app() -> dash.Dash:
 
 
 def create_nav_bar(active_page: str = "homes") -> html.Div:
-    """Create the navigation bar with site title and nav links."""
+    """Create the navigation bar with site title, nav links, and theme toggle."""
     return html.Div([
         html.Span("Vibe House Shopping", className="nav-title"),
         html.Div([
             html.A("Home Listings", href="/", className=f"nav-link {'active' if active_page == 'homes' else ''}"),
             html.A("Cost Analysis", href="/analysis", className=f"nav-link {'active' if active_page == 'analysis' else ''}"),
+            html.Button(
+                [
+                    html.Span("\u2600\ufe0f", className="icon-sun"),  # Sun emoji
+                    html.Span("\ud83c\udf19", className="icon-moon"),  # Moon emoji
+                ],
+                className="theme-toggle",
+                id="theme-toggle-btn",
+                n_clicks=0,
+            ),
         ], className="nav-links"),
     ], className="nav-bar")
 
@@ -1094,6 +1276,42 @@ def generate_data_table(active_tab: str, all_results: dict[str, Any], years: int
 def register_callbacks(app: dash.Dash) -> None:
     """Register all Dash callbacks."""
 
+    # Clientside callback for theme toggle
+    app.clientside_callback(
+        """
+        function(n_clicks) {
+            if (n_clicks > 0) {
+                toggleTheme();
+            }
+            // Return current theme
+            const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            return theme;
+        }
+        """,
+        Output("theme-store", "data"),
+        Input("theme-toggle-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+
+    # Clientside callback to initialize theme from localStorage
+    app.clientside_callback(
+        """
+        function(pathname) {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                return savedTheme;
+            }
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                return 'dark';
+            }
+            return 'light';
+        }
+        """,
+        Output("theme-store", "data", allow_duplicate=True),
+        Input("url", "pathname"),
+        prevent_initial_call=True,
+    )
+
     @app.callback(
         Output("page-content", "children"),
         Input("url", "pathname"),
@@ -1379,6 +1597,7 @@ def register_callbacks(app: dash.Dash) -> None:
             Input("repair-pct-input", "value"),
             Input("maint-inflation-input", "value"),
             Input({"type": "home-checkbox", "index": ALL}, "value"),
+            Input("theme-store", "data"),
         ],
         prevent_initial_call=False,
     )
@@ -1393,8 +1612,14 @@ def register_callbacks(app: dash.Dash) -> None:
         repair_pct: float | None,
         maint_inflation: float | None,
         home_selections: list[list[int]],
+        current_theme: str | None,
     ) -> tuple[go.Figure, list[html.Div] | html.Div, html.Div | list[Any]]:
         """Update the analysis chart, summary cards, and data table based on selections."""
+        # Determine chart template based on theme
+        chart_template = "plotly_dark" if current_theme == "dark" else "plotly_white"
+        paper_bgcolor = "rgba(0,0,0,0)" if current_theme == "dark" else "rgba(0,0,0,0)"
+        plot_bgcolor = "rgba(0,0,0,0)" if current_theme == "dark" else "rgba(0,0,0,0)"
+
         # Get selected home IDs from the checkbox values
         selected_ids = []
         if home_selections:
@@ -1409,8 +1634,10 @@ def register_callbacks(app: dash.Dash) -> None:
                 title="Select homes to compare",
                 xaxis_title="Year",
                 yaxis_title="Value ($)",
-                template="plotly_white",
+                template=chart_template,
                 height=500,
+                paper_bgcolor=paper_bgcolor,
+                plot_bgcolor=plot_bgcolor,
             )
             return fig, html.Div("Select one or more homes to see analysis", className="no-homes-message"), []
 
@@ -1423,7 +1650,7 @@ def register_callbacks(app: dash.Dash) -> None:
 
         if not homes_data:
             fig = go.Figure()
-            fig.update_layout(title="No valid homes selected")
+            fig.update_layout(title="No valid homes selected", template=chart_template)
             return fig, [], []
 
         # Convert inputs to proper values (handle None)
@@ -1531,7 +1758,7 @@ def register_callbacks(app: dash.Dash) -> None:
             title=config["title"],
             xaxis_title="Year",
             yaxis_title=config["yaxis"],
-            template="plotly_white",
+            template=chart_template,
             height=500,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             hovermode="x unified",
@@ -1539,6 +1766,8 @@ def register_callbacks(app: dash.Dash) -> None:
             yaxis=dict(automargin=False, fixedrange=False),
             xaxis=dict(automargin=False),
             margin=dict(l=80, r=40, t=60, b=60),
+            paper_bgcolor=paper_bgcolor,
+            plot_bgcolor=plot_bgcolor,
         )
 
         if config["field"] != "roi":

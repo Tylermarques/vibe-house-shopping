@@ -5,6 +5,7 @@ import logging
 import signal
 import sys
 from pathlib import Path
+from types import FrameType
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +23,7 @@ from app.database import init_db
 from app.watcher import ImportWatcher
 
 
-def main():
+def main() -> None:
     """Run the Vibe House Shopping application."""
     logger.info("Starting Vibe House Shopping...")
 
@@ -39,7 +40,7 @@ def main():
     app = create_app()
 
     # Set up signal handlers for graceful shutdown
-    def signal_handler(signum, frame):
+    def signal_handler(signum: int, frame: FrameType | None) -> None:
         logger.info("Shutting down...")
         watcher.stop()
         sys.exit(0)

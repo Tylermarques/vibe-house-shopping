@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
 from sqlalchemy.engine import Engine
@@ -161,7 +161,7 @@ class Home(Base):
     hoa_monthly = Column(Float)  # Monthly HOA/condo fees
     estimated_repair_pct = Column(Float)  # Monthly repair estimate as % of home value (e.g., 0.0003)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert home to dictionary for display."""
         return {
             "id": self.id,
@@ -197,17 +197,17 @@ class Home(Base):
         }
 
 
-def init_db():
+def init_db() -> None:
     """Initialize the database, creating tables if they don't exist."""
     get_db_manager().init_db()
 
 
-def get_session():
+def get_session() -> Session:
     """Get a new database session."""
     return get_db_manager().get_session()
 
 
-def get_all_homes():
+def get_all_homes() -> list[dict[str, Any]]:
     """Retrieve all homes from the database."""
     session = get_session()
     try:
@@ -230,7 +230,7 @@ def add_home(home_data: dict) -> Home:
         session.close()
 
 
-def home_exists(address: str, source_file: str, mls_id: str = None) -> bool:
+def home_exists(address: str, source_file: str, mls_id: str | None = None) -> bool:
     """Check if a home already exists using MLS ID (preferred) or address+source_file.
 
     The MLS ID is always unique and is the most reliable way to detect duplicates.

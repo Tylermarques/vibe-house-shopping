@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 from bs4 import BeautifulSoup
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
@@ -33,7 +33,7 @@ class HomeDataParser:
     def __init__(self):
         self.geolocator = Nominatim(user_agent="vibe-house-shopping")
 
-    def parse_file(self, file_path: Path) -> Optional[dict]:
+    def parse_file(self, file_path: Path) -> dict[str, Any] | None:
         """Parse an HTML file and extract home data."""
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             html_content = f.read()
@@ -53,7 +53,7 @@ class HomeDataParser:
 
         return data
 
-    def _parse_json_ld(self, soup: BeautifulSoup) -> dict:
+    def _parse_json_ld(self, soup: BeautifulSoup) -> dict[str, Any]:
         """Extract data from JSON-LD structured data blocks (schema.org)."""
         data = {}
 
@@ -93,7 +93,7 @@ class HomeDataParser:
 
         return data
 
-    def _extract_residence_json_ld(self, json_data: dict, data: dict):
+    def _extract_residence_json_ld(self, json_data: dict[str, Any], data: dict[str, Any]) -> None:
         """Extract residence-specific data from JSON-LD."""
         # Basic property info
         if "numberOfRooms" in json_data and "num_rooms" not in data:
@@ -189,7 +189,7 @@ class HomeDataParser:
         if url and "source_url" not in data:
             data["source_url"] = url
 
-    def _extract_product_json_ld(self, json_data: dict, data: dict):
+    def _extract_product_json_ld(self, json_data: dict[str, Any], data: dict[str, Any]) -> None:
         """Extract product data from JSON-LD (contains MLS ID and price)."""
         # MLS ID from SKU
         sku = json_data.get("sku")
@@ -214,7 +214,7 @@ class HomeDataParser:
                 if currency and "currency" not in data:
                     data["currency"] = currency
 
-    def _validate_coordinates(self, lat: float, lng: float) -> tuple:
+    def _validate_coordinates(self, lat: float, lng: float) -> tuple[float, float]:
         """Validate and correct potentially swapped lat/lng coordinates.
 
         Some data sources (like HouseSigma) incorrectly swap latitude and longitude.
@@ -235,7 +235,7 @@ class HomeDataParser:
 
         return lat, lng
 
-    def _try_parse_generic(self, soup: BeautifulSoup, html_content: str) -> Optional[dict]:
+    def _try_parse_generic(self, soup: BeautifulSoup, html_content: str) -> dict[str, Any] | None:
         """Generic parser that tries to extract data from various formats."""
         # Start with JSON-LD structured data (most reliable)
         data = self._parse_json_ld(soup)
@@ -311,7 +311,7 @@ class HomeDataParser:
 
         return data
 
-    def _extract_address(self, soup: BeautifulSoup, html_content: str) -> Optional[str]:
+    def _extract_address(self, soup: BeautifulSoup, html_content: str) -> str | None:
         """Extract address from HTML."""
         # Try common selectors
         selectors = [
@@ -351,7 +351,7 @@ class HomeDataParser:
 
         return None
 
-    def _parse_location_from_address(self, data: dict):
+    def _parse_location_from_address(self, data: dict[str, Any]) -> None:
         """Parse city, state, zip from address string."""
         address = data.get("address", "")
 
@@ -412,7 +412,7 @@ class HomeDataParser:
             if "state" not in data or not data["state"]:
                 data["state"] = match.group(2)
 
-    def _extract_price(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+    def _extract_price(self, soup: BeautifulSoup, html_content: str) -> float | None:
         """Extract price from HTML."""
         selectors = [
             '[data-testid="price"]',
@@ -444,7 +444,7 @@ class HomeDataParser:
 
         return None
 
-    def _parse_price_text(self, text: str) -> Optional[float]:
+    def _parse_price_text(self, text: str) -> float | None:
         """Parse price from text string."""
         text = text.replace(",", "").replace("$", "").strip()
         match = re.search(r"(\d+(?:\.\d+)?)", text)
@@ -452,7 +452,7 @@ class HomeDataParser:
             return float(match.group(1))
         return None
 
-    def _extract_bedrooms(self, soup: BeautifulSoup, html_content: str) -> Optional[int]:
+    def _extract_bedrooms(self, soup: BeautifulSoup, html_content: str) -> int | None:
         """Extract bedroom count from HTML."""
         patterns = [
             r"(\d+)\s*(?:bed|br|bedroom)s?",
@@ -468,7 +468,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_bathrooms(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+    def _extract_bathrooms(self, soup: BeautifulSoup, html_content: str) -> float | None:
         """Extract bathroom count from HTML."""
         patterns = [
             r"(\d+(?:\.\d+)?)\s*(?:bath|ba|bathroom)s?",
@@ -484,7 +484,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_sqft(self, soup: BeautifulSoup, html_content: str) -> Optional[int]:
+    def _extract_sqft(self, soup: BeautifulSoup, html_content: str) -> int | None:
         """Extract square footage from HTML."""
         patterns = [
             r"([\d,]+)\s*(?:sq\.?\s*ft|sqft|square\s*feet)",
@@ -500,7 +500,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_lot_size(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+    def _extract_lot_size(self, soup: BeautifulSoup, html_content: str) -> float | None:
         """Extract lot size from HTML (in acres)."""
         patterns = [
             r"([\d.]+)\s*(?:acre|ac)s?",
@@ -516,7 +516,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_year_built(self, soup: BeautifulSoup, html_content: str) -> Optional[int]:
+    def _extract_year_built(self, soup: BeautifulSoup, html_content: str) -> int | None:
         """Extract year built from HTML."""
         patterns = [
             r"(?:built|year\s*built|constructed)[:\s]*(\d{4})",
@@ -532,7 +532,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_property_type(self, soup: BeautifulSoup, html_content: str) -> Optional[str]:
+    def _extract_property_type(self, soup: BeautifulSoup, html_content: str) -> str | None:
         """Extract property type from HTML."""
         types = [
             "single family",
@@ -552,7 +552,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_description(self, soup: BeautifulSoup) -> Optional[str]:
+    def _extract_description(self, soup: BeautifulSoup) -> str | None:
         """Extract property description from HTML."""
         selectors = [
             '[data-testid="description"]',
@@ -571,7 +571,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_coordinates(self, soup: BeautifulSoup, html_content: str) -> tuple:
+    def _extract_coordinates(self, soup: BeautifulSoup, html_content: str) -> tuple[float | None, float | None]:
         """Extract latitude/longitude from HTML."""
         # Try data attributes
         for elem in soup.find_all(attrs={"data-lat": True, "data-lng": True}):
@@ -611,7 +611,7 @@ class HomeDataParser:
 
         return None, None
 
-    def _extract_source_url(self, soup: BeautifulSoup) -> Optional[str]:
+    def _extract_source_url(self, soup: BeautifulSoup) -> str | None:
         """Extract the source URL from HTML."""
         # Try canonical link
         canonical = soup.find("link", {"rel": "canonical"})
@@ -625,7 +625,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_mls_id(self, html_content: str) -> Optional[str]:
+    def _extract_mls_id(self, html_content: str) -> str | None:
         """Extract MLS listing ID from HTML."""
         # Common MLS ID patterns
         patterns = [
@@ -644,7 +644,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_garage_spaces(self, html_content: str) -> Optional[int]:
+    def _extract_garage_spaces(self, html_content: str) -> int | None:
         """Extract garage/parking spaces from HTML."""
         patterns = [
             r"(\d+)\s*(?:car\s+)?garage",  # "2 car garage" or "2 garage"
@@ -662,7 +662,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_property_tax_rate(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+    def _extract_property_tax_rate(self, soup: BeautifulSoup, html_content: str) -> float | None:
         """Extract property tax rate from HTML.
 
         Returns the rate as a decimal (e.g., 0.012 for 1.2%).
@@ -719,7 +719,7 @@ class HomeDataParser:
 
         return None
 
-    def _extract_hoa_monthly(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
+    def _extract_hoa_monthly(self, soup: BeautifulSoup, html_content: str) -> float | None:
         """Extract monthly HOA/condo/maintenance fees from HTML."""
         # Try HouseSigma format first: <span class="title">Maintenance:</span> followed by value
         # Pattern: Maintenance:</span>...>$668/month
@@ -754,7 +754,7 @@ class HomeDataParser:
 
         return None
 
-    def _geocode_address(self, data: dict):
+    def _geocode_address(self, data: dict[str, Any]) -> None:
         """Geocode an address to get coordinates."""
         address_parts = [data.get("address")]
         if data.get("city"):
@@ -774,7 +774,8 @@ class HomeDataParser:
         except (GeocoderTimedOut, GeocoderServiceError):
             pass  # Geocoding failed, coordinates will remain None
 
-    def _clean_text(self, text: str) -> str:
+    @staticmethod
+    def _clean_text(text: str) -> str:
         """Clean and normalize text."""
         text = re.sub(r"\s+", " ", text)
         return text.strip()

@@ -1,5 +1,7 @@
 """Dash application for visualizing home data on a map."""
 
+from typing import Any
+
 import dash
 import dash_leaflet as dl
 import pandas as pd
@@ -524,7 +526,7 @@ def create_app() -> dash.Dash:
     return app
 
 
-def create_nav_bar(active_page: str = "homes"):
+def create_nav_bar(active_page: str = "homes") -> html.Div:
     """Create the navigation bar."""
     return html.Div([
         html.A("Home Listings", href="/", className=f"nav-link {'active' if active_page == 'homes' else ''}"),
@@ -532,7 +534,7 @@ def create_nav_bar(active_page: str = "homes"):
     ], className="nav-bar")
 
 
-def create_home_list_layout():
+def create_home_list_layout() -> html.Div:
     """Create the main home listing layout."""
     return html.Div([
         # Navigation
@@ -598,7 +600,7 @@ def create_home_list_layout():
     ])
 
 
-def create_home_detail_layout(home_id: int):
+def create_home_detail_layout(home_id: int) -> html.Div:
     """Create the detail view layout for a single home."""
     home = get_home_by_id(home_id)
 
@@ -740,7 +742,7 @@ def create_home_detail_layout(home_id: int):
     ])
 
 
-def create_cost_analysis_layout():
+def create_cost_analysis_layout() -> html.Div:
     """Create the cost analysis page layout."""
     homes = get_all_homes()
 
@@ -941,7 +943,7 @@ def create_cost_analysis_layout():
     ])
 
 
-def generate_data_table(active_tab: str, all_results: dict, years: int):
+def generate_data_table(active_tab: str, all_results: dict[str, Any], years: int) -> html.Div | list[Any]:
     """Generate a data table for the analysis results based on the active tab.
 
     Args:
@@ -981,7 +983,13 @@ def generate_data_table(active_tab: str, all_results: dict, years: int):
     return []
 
 
-def generate_simple_table(all_results: dict, field: str, title: str, is_currency: bool = True, is_ratio: bool = False):
+def generate_simple_table(
+    all_results: dict[str, Any],
+    field: str,
+    title: str,
+    is_currency: bool = True,
+    is_ratio: bool = False,
+) -> html.Div | list[Any]:
     """Generate a simple table with years as columns and homes as rows."""
     if not all_results:
         return []
@@ -1024,7 +1032,7 @@ def generate_simple_table(all_results: dict, field: str, title: str, is_currency
     ])
 
 
-def generate_costs_table(all_results: dict, years: int):
+def generate_costs_table(all_results: dict[str, Any], years: int) -> html.Div | list[Any]:
     """Generate a detailed costs table showing breakdown of annual costs.
 
     For the Annual Costs tab, we show:
@@ -1123,14 +1131,14 @@ def generate_costs_table(all_results: dict, years: int):
     ])
 
 
-def register_callbacks(app: dash.Dash):
+def register_callbacks(app: dash.Dash) -> None:
     """Register all Dash callbacks."""
 
     @app.callback(
         Output("page-content", "children"),
         Input("url", "pathname"),
     )
-    def display_page(pathname):
+    def display_page(pathname: str | None) -> html.Div:
         """Route to the appropriate page based on URL."""
         if pathname == "/analysis":
             return create_cost_analysis_layout()
@@ -1146,7 +1154,7 @@ def register_callbacks(app: dash.Dash):
         Output("homes-data", "data"),
         Input("auto-refresh", "n_intervals"),
     )
-    def refresh_data(n_intervals):
+    def refresh_data(n_intervals: int) -> list[dict[str, Any]]:
         """Refresh home data from the database."""
         return get_all_homes()
 
@@ -1155,7 +1163,7 @@ def register_callbacks(app: dash.Dash):
         Input("refresh-button", "n_clicks"),
         prevent_initial_call=True,
     )
-    def refresh_data_button(n_clicks):
+    def refresh_data_button(n_clicks: int | None) -> list[dict[str, Any]]:
         """Refresh home data when button is clicked."""
         return get_all_homes()
 
@@ -1163,7 +1171,7 @@ def register_callbacks(app: dash.Dash):
         Output("homes-list", "children"),
         Input("homes-data", "data"),
     )
-    def update_homes_list(homes_data):
+    def update_homes_list(homes_data: list[dict[str, Any]] | None) -> html.Table | html.P:
         """Update the homes list with clickable entries."""
         if not homes_data:
             return html.P("No homes in database. Drop HTML files into the import/ directory to add homes.")
@@ -1222,7 +1230,7 @@ def register_callbacks(app: dash.Dash):
         Output("marker-layer", "children"),
         Input("homes-data", "data"),
     )
-    def update_map_markers(homes_data):
+    def update_map_markers(homes_data: list[dict[str, Any]] | None) -> list[dl.Marker]:
         """Update map markers based on home data."""
         if not homes_data:
             return []
@@ -1275,7 +1283,7 @@ def register_callbacks(app: dash.Dash):
         Output("home-count", "children"),
         Input("homes-data", "data"),
     )
-    def update_home_count(homes_data):
+    def update_home_count(homes_data: list[dict[str, Any]] | None) -> str:
         """Update the home count display."""
         count = len(homes_data) if homes_data else 0
         return f"{count} home{'s' if count != 1 else ''} in database"
@@ -1284,7 +1292,7 @@ def register_callbacks(app: dash.Dash):
         Output("home-map", "viewport"),
         Input("homes-data", "data"),
     )
-    def update_map_view(homes_data):
+    def update_map_view(homes_data: list[dict[str, Any]] | None) -> dict[str, Any]:
         """Update map viewport based on home locations.
 
         Note: We use the 'viewport' property instead of 'center'/'zoom' because
@@ -1338,7 +1346,7 @@ def register_callbacks(app: dash.Dash):
         Input("years-slider", "value"),
         prevent_initial_call=False,
     )
-    def update_years_display(years):
+    def update_years_display(years: int | None) -> str:
         """Update the years display text."""
         if years is None:
             return "30 years"
@@ -1355,7 +1363,13 @@ def register_callbacks(app: dash.Dash):
         ],
         prevent_initial_call=True,
     )
-    def update_active_tab(value_clicks, equity_clicks, cash_clicks, costs_clicks, roi_clicks):
+    def update_active_tab(
+        value_clicks: int,
+        equity_clicks: int,
+        cash_clicks: int,
+        costs_clicks: int,
+        roi_clicks: int,
+    ) -> str:
         """Update the active chart tab based on button clicks."""
         ctx = dash.callback_context
         if not ctx.triggered:
@@ -1380,7 +1394,7 @@ def register_callbacks(app: dash.Dash):
         ],
         Input("active-chart-tab", "data"),
     )
-    def update_tab_styles(active_tab):
+    def update_tab_styles(active_tab: str) -> list[str]:
         """Update tab button styles based on active tab."""
         tabs = ["value", "equity", "cash", "costs", "roi"]
         return [
@@ -1409,17 +1423,17 @@ def register_callbacks(app: dash.Dash):
         prevent_initial_call=False,
     )
     def update_analysis_chart(
-        active_tab,
-        years,
-        down_payment_pct,
-        interest_rate,
-        loan_term,
-        purchase_fees,
-        growth_rate,
-        repair_pct,
-        maint_inflation,
-        home_selections,
-    ):
+        active_tab: str,
+        years: int | None,
+        down_payment_pct: float | None,
+        interest_rate: float | None,
+        loan_term: int | None,
+        purchase_fees: float | None,
+        growth_rate: float | None,
+        repair_pct: float | None,
+        maint_inflation: float | None,
+        home_selections: list[list[int]],
+    ) -> tuple[go.Figure, list[html.Div] | html.Div]:
         """Update the analysis chart and summary cards based on selections."""
         # Get selected home IDs from the checkbox values
         selected_ids = []

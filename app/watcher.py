@@ -22,17 +22,17 @@ class HTMLFileHandler(FileSystemEventHandler):
         self.parser = HomeDataParser()
         self.processing_lock = threading.Lock()
 
-    def on_created(self, event):
+    def on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation events."""
         if isinstance(event, FileCreatedEvent) and not event.is_directory:
             self._process_file(Path(event.src_path))
 
-    def on_moved(self, event):
+    def on_moved(self, event: FileMovedEvent) -> None:
         """Handle file move events (e.g., when files are moved into the directory)."""
         if isinstance(event, FileMovedEvent) and not event.is_directory:
             self._process_file(Path(event.dest_path))
 
-    def _process_file(self, file_path: Path):
+    def _process_file(self, file_path: Path) -> None:
         """Process an HTML file."""
         if file_path.suffix.lower() not in [".html", ".htm"]:
             return
@@ -75,7 +75,7 @@ class ImportWatcher:
         self.handler = HTMLFileHandler(import_dir)
         self._running = False
 
-    def start(self):
+    def start(self) -> None:
         """Start watching the import directory."""
         if self._running:
             return
@@ -91,7 +91,7 @@ class ImportWatcher:
         self._running = True
         logger.info(f"Started watching import directory: {self.import_dir}")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop watching the import directory."""
         if not self._running:
             return
@@ -101,7 +101,7 @@ class ImportWatcher:
         self._running = False
         logger.info("Stopped import directory watcher")
 
-    def _process_existing_files(self):
+    def _process_existing_files(self) -> None:
         """Process any HTML files already in the import directory."""
         for file_path in self.import_dir.glob("*.html"):
             self.handler._process_file(file_path)
@@ -109,6 +109,6 @@ class ImportWatcher:
             self.handler._process_file(file_path)
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         """Check if the watcher is running."""
         return self._running

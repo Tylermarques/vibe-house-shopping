@@ -5,7 +5,7 @@ spreadsheet, computing projected costs, equity, and returns over time.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 import numpy as np
 
@@ -83,7 +83,7 @@ class YearlyAnalysis:
     annual_mortgage_payment: float
 
     @property
-    def roi(self) -> Optional[float]:
+    def roi(self) -> float | None:
         """Calculate return on investment (equity / total cash invested)."""
         if self.total_cash_invested <= 0:
             return None
@@ -205,7 +205,7 @@ def compare_homes(
     return {name: run_analysis(params, years) for name, params in homes_params}
 
 
-def get_analysis_summary(results: list[YearlyAnalysis]) -> dict:
+def get_analysis_summary(results: list[YearlyAnalysis]) -> dict[str, Any]:
     """Get summary statistics from analysis results.
 
     Args:

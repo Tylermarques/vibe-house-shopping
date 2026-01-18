@@ -974,7 +974,10 @@ def create_cost_analysis_layout() -> html.Div:
 
 
 def generate_data_table(active_tab: str, all_results: dict[str, Any], years: int) -> html.Div | list[Any]:
-    """Generate a data table for the analysis results based on the active tab.
+    """Generate a unified comparison table for the analysis results.
+
+    All selected homes are shown in a single table for easy comparison.
+    Each row is a year, and columns show values for each home side-by-side.
 
     Args:
         active_tab: The currently active chart tab (value, equity, cash, costs, roi)
@@ -987,211 +990,117 @@ def generate_data_table(active_tab: str, all_results: dict[str, Any], years: int
     if not all_results:
         return []
 
-    # Get the first home's results to determine the number of years
-    first_results = list(all_results.values())[0]["results"]
-
-    if active_tab == "costs":
-        # For Annual Costs tab, show breakdown of cost components
-        return generate_costs_table(all_results, years)
-    elif active_tab == "value":
-        return generate_simple_table(
-            all_results, "home_value", "Home Value by Year", is_currency=True
-        )
-    elif active_tab == "equity":
-        return generate_simple_table(
-            all_results, "equity", "Equity by Year", is_currency=True
-        )
-    elif active_tab == "cash":
-        return generate_simple_table(
-            all_results, "total_cash_invested", "Total Cash Invested by Year", is_currency=True
-        )
-    elif active_tab == "roi":
-        return generate_simple_table(
-            all_results, "roi", "ROI by Year", is_currency=False, is_ratio=True
-        )
-
-    return []
-
-
-def generate_simple_table(
-    all_results: dict[str, Any],
-    field: str,
-    title: str,
-    is_currency: bool = True,
-    is_ratio: bool = False,
-) -> html.Div | list[Any]:
-    """Generate a simple table with years as rows and homes as columns, color-coded with tooltips."""
-    if not all_results:
-        return []
-
-    # Get all years from the first result
+    home_labels = list(all_results.keys())
+    num_homes = len(home_labels)
     first_results = list(all_results.values())[0]["results"]
     all_years = [r.year for r in first_results]
-    home_labels = list(all_results.keys())
 
-    # Build header row - Year column + one column per home
-    header_cells = [html.Th("Year")]
-    for label in home_labels:
-        color = all_results[label]["color"]
-        header_cells.append(
-            html.Th(
-                label[:25],
-                style={"color": color},
-                title=label,
-            )
+    # Define which fields to show based on the active tab
+    tab_config = {
+        "value": [("Home Value", "home_value", True)],
+        "equity": [("Equity", "equity", True), ("Loan Balance", "loan_balance", True)],
+        "cash": [("Total Cash Invested", "total_cash_invested", True)],
+        "costs": [
+            ("Property Taxes", "annual_taxes", True),
+            ("Repairs", "annual_repair", True),
+            ("Maintenance", "annual_maintenance", True),
+            ("Mortgage", "annual_mortgage_payment", True),
+            ("Total Outflow", "annual_cash_outflow", True),
+        ],
+        "roi": [("ROI", "roi", False), ("Equity", "equity", True), ("Cash Invested", "total_cash_invested", True)],
+    }
+
+    fields = tab_config.get(active_tab, tab_config["value"])
+
+    # Build header rows
+    # Row 1: Year + metric names (spanning all homes)
+    header_row1_cells = [html.Th("Year", rowSpan=2)]
+    for field_name, _, _ in fields:
+        header_row1_cells.append(
+            html.Th(field_name, colSpan=num_homes, style={"textAlign": "center"})
         )
 
-    # Build data rows - one row per year
-    rows = []
-    for year_idx, year in enumerate(all_years):
-        cells = [html.Td(str(year))]
-
+    # Row 2: Home names under each metric (color-coded)
+    header_row2_cells = []
+    for _ in fields:
         for label in home_labels:
-            data = all_results[label]
-            results = data["results"]
-            color = data["color"]
-
-            r = results[year_idx]
-            if field == "roi":
-                val = r.roi if r.roi else 0
-                cell_text = f"{val:.2f}x" if val else "—"
-            else:
-                val = getattr(r, field)
-                if is_currency:
-                    cell_text = f"${val:,.0f}"
-                elif is_ratio:
-                    cell_text = f"{val:.2f}x" if val else "—"
-                else:
-                    cell_text = f"{val:,.0f}"
-
-            cells.append(
-                html.Td(
-                    cell_text,
-                    style={"color": color},
-                    title=f"{label}: {cell_text}",
+            color = all_results[label]["color"]
+            header_row2_cells.append(
+                html.Th(
+                    label[:20],
+                    style={"color": color, "fontSize": "0.8rem", "fontWeight": "normal"},
+                    title=label,
                 )
             )
 
-        rows.append(html.Tr(cells))
+    # Build data rows - one row per year
+    data_rows = []
+    for year_idx, year in enumerate(all_years):
+        cells = [html.Td(str(year))]
+
+        for field_name, field_key, is_currency in fields:
+            for label in home_labels:
+                data = all_results[label]
+                results = data["results"]
+                color = data["color"]
+                r = results[year_idx]
+
+                if field_key == "roi":
+                    val = r.roi
+                    cell_text = f"{val:.2f}x" if val else "—"
+                else:
+                    val = getattr(r, field_key)
+                    cell_text = f"${val:,.0f}" if is_currency else f"{val:,.2f}"
+
+                cells.append(
+                    html.Td(
+                        cell_text,
+                        style={"color": color},
+                        title=f"{label}: {cell_text}",
+                    )
+                )
+
+        data_rows.append(html.Tr(cells))
+
+    # Build totals row for costs tab
+    footer_rows = []
+    if active_tab == "costs":
+        total_cells = [html.Td("Total", style={"fontWeight": "600"})]
+        for field_name, field_key, is_currency in fields:
+            for label in home_labels:
+                data = all_results[label]
+                results = data["results"]
+                color = data["color"]
+                # Sum all years (skip year 0 for annual costs)
+                total = sum(getattr(r, field_key) for r in results[1:])
+                cell_text = f"${total:,.0f}" if is_currency else f"{total:,.2f}"
+                total_cells.append(
+                    html.Td(
+                        cell_text,
+                        style={"color": color, "fontWeight": "600"},
+                        title=f"{label} Total: {cell_text}",
+                    )
+                )
+        footer_rows.append(html.Tr(total_cells))
+
+    title_map = {
+        "value": "Home Value Comparison",
+        "equity": "Equity Comparison",
+        "cash": "Cash Invested Comparison",
+        "costs": "Annual Costs Comparison",
+        "roi": "ROI Comparison",
+    }
 
     return html.Div([
-        html.H3(title),
+        html.H3(title_map.get(active_tab, "Comparison")),
         html.Table([
-            html.Thead(html.Tr(header_cells)),
-            html.Tbody(rows),
+            html.Thead([
+                html.Tr(header_row1_cells),
+                html.Tr(header_row2_cells),
+            ]),
+            html.Tbody(data_rows),
+            html.Tfoot(footer_rows) if footer_rows else None,
         ], className="data-table"),
-    ])
-
-
-def generate_costs_table(all_results: dict[str, Any], years: int) -> html.Div | list[Any]:
-    """Generate a detailed costs table showing breakdown of annual costs.
-
-    For the Annual Costs tab, we show:
-    - Year 0: Purchase fees (closing costs)
-    - Year 1+: Property taxes, repairs, maintenance, mortgage payment, and total
-    """
-    if not all_results:
-        return []
-
-    tables = []
-
-    for label, data in all_results.items():
-        results = data["results"]
-        home = data["home"]
-        color = data["color"]
-
-        # Get first result for initial investment info
-        first = results[0]
-
-        # Build header - Year as a column
-        header_cells = [
-            html.Th("Year"),
-            html.Th("Property Taxes"),
-            html.Th("Repairs"),
-            html.Th("Maintenance (HOA)"),
-            html.Th("Mortgage Payment"),
-            html.Th("Total Annual Cost"),
-        ]
-
-        # Build rows for each year
-        rows = []
-
-        # Year 0 row - shows closing fees
-        yr0 = results[0]
-        initial_cost = f"${yr0.total_cash_invested:,.0f}"
-        rows.append(html.Tr([
-            html.Td("0 (Purchase)"),
-            html.Td("—"),
-            html.Td("—"),
-            html.Td("—"),
-            html.Td("—"),
-            html.Td(initial_cost, style={"fontWeight": "600", "color": color}, title=f"{label}: {initial_cost}"),
-        ]))
-
-        # Cumulative totals for footer
-        total_taxes = 0
-        total_repairs = 0
-        total_maintenance = 0
-        total_mortgage = 0
-        total_all = yr0.total_cash_invested  # Start with initial investment
-
-        for r in results[1:]:
-            total_taxes += r.annual_taxes
-            total_repairs += r.annual_repair
-            total_maintenance += r.annual_maintenance
-            total_mortgage += r.annual_mortgage_payment
-
-            year_total = (
-                r.annual_taxes
-                + r.annual_repair
-                + r.annual_maintenance
-                + r.annual_mortgage_payment
-            )
-            total_all += year_total
-
-            taxes_str = f"${r.annual_taxes:,.0f}"
-            repairs_str = f"${r.annual_repair:,.0f}"
-            maint_str = f"${r.annual_maintenance:,.0f}"
-            mortgage_str = f"${r.annual_mortgage_payment:,.0f}"
-            total_str = f"${year_total:,.0f}"
-
-            rows.append(html.Tr([
-                html.Td(str(r.year)),
-                html.Td(taxes_str, style={"color": color}, title=f"{label}: {taxes_str}"),
-                html.Td(repairs_str, style={"color": color}, title=f"{label}: {repairs_str}"),
-                html.Td(maint_str, style={"color": color}, title=f"{label}: {maint_str}"),
-                html.Td(mortgage_str, style={"color": color}, title=f"{label}: {mortgage_str}"),
-                html.Td(total_str, style={"fontWeight": "600", "color": color}, title=f"{label}: {total_str}"),
-            ]))
-
-        # Footer with totals
-        total_taxes_str = f"${total_taxes:,.0f}"
-        total_repairs_str = f"${total_repairs:,.0f}"
-        total_maint_str = f"${total_maintenance:,.0f}"
-        total_mortgage_str = f"${total_mortgage:,.0f}"
-        total_all_str = f"${total_all:,.0f}"
-
-        footer_row = html.Tr([
-            html.Td("Total"),
-            html.Td(total_taxes_str, style={"color": color}, title=f"{label}: {total_taxes_str}"),
-            html.Td(total_repairs_str, style={"color": color}, title=f"{label}: {total_repairs_str}"),
-            html.Td(total_maint_str, style={"color": color}, title=f"{label}: {total_maint_str}"),
-            html.Td(total_mortgage_str, style={"color": color}, title=f"{label}: {total_mortgage_str}"),
-            html.Td(total_all_str, style={"color": color}, title=f"{label}: {total_all_str}"),
-        ])
-
-        tables.append(html.Div([
-            html.H3(label, style={"color": color}),
-            html.Table([
-                html.Thead(html.Tr(header_cells)),
-                html.Tbody(rows),
-                html.Tfoot([footer_row]),
-            ], className="data-table"),
-        ], style={"marginBottom": "30px"}))
-
-    return html.Div([
-        html.H3("Annual Cost Breakdown"),
-        *tables,
     ])
 
 

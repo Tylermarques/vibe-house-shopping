@@ -45,8 +45,12 @@ class HTMLFileHandler(FileSystemEventHandler):
                 data = self.parser.parse_file(file_path)
 
                 if data:
-                    if home_exists(data.get("address", ""), data.get("source_file", "")):
-                        logger.info(f"Home already exists in database: {data.get('address')}")
+                    if home_exists(
+                        data.get("address", ""),
+                        data.get("source_file", ""),
+                        data.get("mls_id"),
+                    ):
+                        logger.info(f"Home already exists in database: {data.get('address')} (MLS: {data.get('mls_id')})")
                         return
 
                     home = add_home(data)

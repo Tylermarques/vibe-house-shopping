@@ -122,16 +122,27 @@ def add_home(home_data: dict) -> Home:
         session.close()
 
 
-def home_exists(address: str, source_file: str) -> bool:
-    """Check if a home with the given address and source file already exists."""
+def home_exists(address: str, source_file: str, mls_id: str = None) -> bool:
+    """Check if a home already exists using MLS ID (preferred) or address+source_file.
+
+    The MLS ID is always unique and is the most reliable way to detect duplicates.
+    Falls back to address + source_file check if MLS ID is not available.
+    """
     session = get_session()
     try:
-        existing = (
-            session.query(Home)
-            .filter(Home.address == address, Home.source_file == source_file)
-            .first()
-        )
-        return existing is not None
+        # First, check by MLS ID if available (most reliable)
+        if mls_id:
+            existing = session.query(Home).filter(Home.mls_id == mls_id).first()
+            if existing is not None:
+                return True
+
+        # Also check by address alone (catch duplicates from different files)
+        if address:
+            existing = session.query(Home).filter(Home.address == address).first()
+            if existing is not None:
+                return True
+
+        return False
     finally:
         session.close()
 

@@ -6,6 +6,21 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Add the project root to Python path so 'app' can be imported
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+
+# Pre-import modules that may have state issues with Python 3.14
+# This avoids SQLAlchemy re-registration errors when running multiple tests
+try:
+    import sqlalchemy
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker, declarative_base
+except ImportError:
+    pass
+
 
 # Mock geopy before importing parser to avoid dependency issues in test environments
 @pytest.fixture(autouse=True)

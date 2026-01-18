@@ -1,6 +1,6 @@
 """Database models and utilities for home data storage."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from pathlib import Path
@@ -36,7 +36,7 @@ class Home(Base):
     description = Column(Text)
     source_url = Column(String(1000))
     source_file = Column(String(500))
-    imported_at = Column(DateTime, default=datetime.utcnow)
+    imported_at = Column(DateTime, default=lambda: datetime.now(UTC))
     raw_html = Column(Text)
 
     # New fields for enhanced data capture

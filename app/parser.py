@@ -667,6 +667,19 @@ class HomeDataParser:
         Returns the rate as a decimal (e.g., 0.012 for 1.2%).
         If an annual dollar amount is found with a price, calculates the rate.
         """
+        # Try HouseSigma format first: <span class="title">Tax:</span> followed by value
+        # Pattern: Tax:</span>...>$3,402 / 2025
+        housesigma_pattern = r'class="title"[^>]*>Tax:</span>.*?>\$?([\d,]+)(?:\s*/\s*\d{4})?'
+        match = re.search(housesigma_pattern, html_content, re.IGNORECASE | re.DOTALL)
+        if match:
+            try:
+                tax_amount = float(match.group(1).replace(",", ""))
+                # Sanity check: annual tax should be between $100 and $100,000
+                if 100 <= tax_amount <= 100000:
+                    return tax_amount
+            except ValueError:
+                pass
+
         # Try to find property tax as annual amount
         patterns = [
             r"(?:property\s*)?tax(?:es)?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:year|yr|annual))?",
@@ -706,12 +719,25 @@ class HomeDataParser:
         return None
 
     def _extract_hoa_monthly(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
-        """Extract monthly HOA/condo fees from HTML."""
+        """Extract monthly HOA/condo/maintenance fees from HTML."""
+        # Try HouseSigma format first: <span class="title">Maintenance:</span> followed by value
+        # Pattern: Maintenance:</span>...>$668/month
+        housesigma_pattern = r'class="title"[^>]*>Maintenance:</span>.*?>\$?([\d,]+)(?:/(?:month|mo))?'
+        match = re.search(housesigma_pattern, html_content, re.IGNORECASE | re.DOTALL)
+        if match:
+            try:
+                amount = float(match.group(1).replace(",", ""))
+                # Sanity check: monthly maintenance should be between $50 and $10,000
+                if 50 <= amount <= 10000:
+                    return amount
+            except ValueError:
+                pass
+
         patterns = [
-            r"(?:hoa|condo|strata)\s*(?:fee|dues)?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
+            r"(?:hoa|condo|strata)\s*(?:fees?|dues)?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
             r"\$\s*([\d,]+)\s*/\s*(?:month|mo)\s*(?:hoa|condo|strata)",
-            r"(?:monthly\s*)?(?:hoa|condo|strata)\s*(?:fee|dues)[:\s]*\$?\s*([\d,]+)",
-            r"maintenance\s*fee[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
+            r"(?:monthly\s*)?(?:hoa|condo|strata)\s*(?:fees?|dues)[:\s]*\$?\s*([\d,]+)",
+            r"maintenance\s*fees?[:\s]*\$?\s*([\d,]+)(?:\s*/\s*(?:month|mo))?",
         ]
 
         for pattern in patterns:

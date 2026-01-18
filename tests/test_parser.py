@@ -364,6 +364,113 @@ class TestFloorSizeConversion:
         assert data["sqft"] == 2000
 
 
+class TestPropertyTaxExtraction:
+    """Tests for property tax extraction."""
+
+    def test_extract_property_tax_housesigma_format(self, parser):
+        """Test extracting property tax from HouseSigma format."""
+        html = '''
+        <div class="item-header">
+            <span class="title" data-v-d01ee444="">Tax:</span>
+        </div>
+        <dd class="item-text">
+            <span>$3,402 / 2025</span>
+        </dd>
+        '''
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_property_tax_rate(soup, html)
+        assert result == 3402.0
+
+    def test_extract_property_tax_housesigma_format_without_year(self, parser):
+        """Test extracting property tax from HouseSigma format without year."""
+        html = '''
+        <span class="title">Tax:</span>
+        <span>$5,000</span>
+        '''
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_property_tax_rate(soup, html)
+        assert result == 5000.0
+
+    def test_extract_property_tax_standard_format(self, parser):
+        """Test extracting property tax from standard text format."""
+        html = "Annual property taxes: $4,500"
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_property_tax_rate(soup, html)
+        assert result == 4500.0
+
+    def test_extract_property_tax_returns_none_when_not_found(self, parser):
+        """Test that None is returned when no tax info found."""
+        html = "Beautiful home with garden"
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_property_tax_rate(soup, html)
+        assert result is None
+
+
+class TestMaintenanceFeeExtraction:
+    """Tests for maintenance/HOA fee extraction."""
+
+    def test_extract_maintenance_housesigma_format(self, parser):
+        """Test extracting maintenance fee from HouseSigma format."""
+        html = '''
+        <div class="item-header">
+            <span class="title" data-v-d01ee444="">Maintenance:</span>
+        </div>
+        <dd class="item-text">
+            <span>$668/month</span>
+        </dd>
+        '''
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_hoa_monthly(soup, html)
+        assert result == 668.0
+
+    def test_extract_maintenance_housesigma_format_with_space(self, parser):
+        """Test extracting maintenance fee with space before /month."""
+        html = '''
+        <span class="title">Maintenance:</span>
+        <span>$750 / month</span>
+        '''
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_hoa_monthly(soup, html)
+        assert result == 750.0
+
+    def test_extract_hoa_standard_format(self, parser):
+        """Test extracting HOA fee from standard text format."""
+        html = "HOA fees: $350/mo"
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_hoa_monthly(soup, html)
+        assert result == 350.0
+
+    def test_extract_strata_fee(self, parser):
+        """Test extracting strata fee (Canadian term for HOA)."""
+        html = "Strata fee: $500/month"
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_hoa_monthly(soup, html)
+        assert result == 500.0
+
+    def test_extract_maintenance_returns_none_when_not_found(self, parser):
+        """Test that None is returned when no maintenance info found."""
+        html = "Beautiful home with garden"
+        soup = BeautifulSoup(html, "lxml")
+        result = parser._extract_hoa_monthly(soup, html)
+        assert result is None
+
+
+class TestFullParsingCostFields:
+    """Integration tests for cost-related fields in full parsing."""
+
+    def test_parse_example_extracts_property_tax(self, parser, example_html_path):
+        """Test that property tax is extracted from example listing."""
+        result = parser.parse_file(example_html_path)
+        # The example listing should have Tax: $3,402 / 2025
+        assert result["property_tax_rate"] == 3402.0
+
+    def test_parse_example_extracts_maintenance_fee(self, parser, example_html_path):
+        """Test that maintenance fee is extracted from example listing."""
+        result = parser.parse_file(example_html_path)
+        # The example listing should have Maintenance: $668/month
+        assert result["hoa_monthly"] == 668.0
+
+
 class TestImageUrlExtraction:
     """Tests for image URL extraction from various formats."""
 

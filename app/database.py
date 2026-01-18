@@ -108,3 +108,13 @@ def home_exists(address: str, source_file: str) -> bool:
         return existing is not None
     finally:
         session.close()
+
+
+def get_home_by_id(home_id: int) -> dict | None:
+    """Retrieve a single home by its ID."""
+    session = get_session()
+    try:
+        home = session.query(Home).filter(Home.id == home_id).first()
+        return home.to_dict() if home else None
+    finally:
+        session.close()

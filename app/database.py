@@ -2,17 +2,124 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Optional
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-DATA_DIR = Path(__file__).parent.parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
-DATABASE_PATH = DATA_DIR / "homes.db"
 
-engine = create_engine(f"sqlite:///{DATABASE_PATH}", echo=False)
-SessionLocal = sessionmaker(bind=engine)
+# Base must be defined at module level so models can inherit from it
 Base = declarative_base()
+
+
+class DatabaseManager:
+    """Factory for creating database engines and sessions.
+
+    This class allows configurable database paths, making it easy to:
+    - Use different database paths in production vs testing
+    - Create isolated database instances for tests
+    - Avoid global state issues from module-level initialization
+
+    Usage:
+        # Default (uses DATA_DIR/homes.db):
+        db = DatabaseManager()
+
+        # Custom path:
+        db = DatabaseManager(db_path="/path/to/test.db")
+
+        # In-memory database for tests:
+        db = DatabaseManager(db_url="sqlite:///:memory:")
+
+        # Get a session:
+        with db.get_session() as session:
+            # do work
+            session.commit()
+    """
+
+    _default_data_dir: Path = Path(__file__).parent.parent / "data"
+
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        db_url: Optional[str] = None,
+        echo: bool = False,
+    ):
+        """Initialize the database manager.
+
+        Args:
+            db_path: Path to the SQLite database file. If None, uses default.
+            db_url: Full database URL (overrides db_path if provided).
+            echo: If True, log all SQL statements.
+        """
+        if db_url:
+            self._db_url = db_url
+        elif db_path:
+            self._db_url = f"sqlite:///{db_path}"
+        else:
+            # Default path
+            self._default_data_dir.mkdir(exist_ok=True)
+            default_path = self._default_data_dir / "homes.db"
+            self._db_url = f"sqlite:///{default_path}"
+
+        self._echo = echo
+        self._engine: Optional[Engine] = None
+        self._session_factory: Optional[sessionmaker] = None
+
+    @property
+    def engine(self) -> Engine:
+        """Get or create the database engine (lazy initialization)."""
+        if self._engine is None:
+            self._engine = create_engine(self._db_url, echo=self._echo)
+        return self._engine
+
+    @property
+    def session_factory(self) -> sessionmaker:
+        """Get or create the session factory."""
+        if self._session_factory is None:
+            self._session_factory = sessionmaker(bind=self.engine)
+        return self._session_factory
+
+    def get_session(self) -> Session:
+        """Get a new database session."""
+        return self.session_factory()
+
+    def init_db(self) -> None:
+        """Initialize the database, creating tables if they don't exist."""
+        Base.metadata.create_all(self.engine)
+
+    def dispose(self) -> None:
+        """Dispose of the engine and release connections."""
+        if self._engine is not None:
+            self._engine.dispose()
+            self._engine = None
+            self._session_factory = None
+
+
+# Default global instance for backward compatibility
+_default_manager: Optional[DatabaseManager] = None
+
+
+def get_db_manager() -> DatabaseManager:
+    """Get the default database manager instance."""
+    global _default_manager
+    if _default_manager is None:
+        _default_manager = DatabaseManager()
+    return _default_manager
+
+
+def set_db_manager(manager: DatabaseManager) -> None:
+    """Set a custom database manager (useful for testing)."""
+    global _default_manager
+    _default_manager = manager
+
+
+def reset_db_manager() -> None:
+    """Reset the default database manager (useful for testing cleanup)."""
+    global _default_manager
+    if _default_manager is not None:
+        _default_manager.dispose()
+    _default_manager = None
 
 
 class Home(Base):
@@ -92,12 +199,12 @@ class Home(Base):
 
 def init_db():
     """Initialize the database, creating tables if they don't exist."""
-    Base.metadata.create_all(engine)
+    get_db_manager().init_db()
 
 
 def get_session():
     """Get a new database session."""
-    return SessionLocal()
+    return get_db_manager().get_session()
 
 
 def get_all_homes():

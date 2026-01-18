@@ -134,19 +134,19 @@ def swapped_coordinates_json_ld():
 
 @pytest.fixture
 def temp_db(tmp_path):
-    """Create a temporary database for testing."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from app.database import Base, engine, init_db
+    """Create a temporary database for testing using the factory pattern."""
+    from app.database import DatabaseManager, reset_db_manager, set_db_manager
 
     db_path = tmp_path / "test_homes.db"
-    test_engine = create_engine(f"sqlite:///{db_path}")
-    Base.metadata.create_all(test_engine)
+    db_manager = DatabaseManager(db_path=db_path)
+    db_manager.init_db()
 
-    Session = sessionmaker(bind=test_engine)
-    session = Session()
+    # Set as the default manager so all database functions use this instance
+    set_db_manager(db_manager)
+
+    session = db_manager.get_session()
 
     yield session
 
     session.close()
+    reset_db_manager()

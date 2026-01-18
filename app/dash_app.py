@@ -54,9 +54,10 @@ def create_app() -> dash.Dash:
                     color: #333;
                 }
                 .app-container {
-                    max-width: 1400px;
+                    max-width: 1800px;
                     margin: 0 auto;
-                    padding: 20px;
+                    padding: 20px 40px;
+                    width: 100%;
                 }
                 .header {
                     text-align: center;
@@ -101,12 +102,14 @@ def create_app() -> dash.Dash:
                     display: flex;
                     flex-direction: column;
                     gap: 30px;
+                    width: 100%;
                 }
                 .map-container, .table-container {
                     background: white;
-                    padding: 20px;
+                    padding: 25px;
                     border-radius: 12px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    width: 100%;
                 }
                 .map-container h2, .table-container h2 {
                     margin-bottom: 15px;
@@ -155,10 +158,11 @@ def create_app() -> dash.Dash:
                 }
                 .detail-container {
                     background: white;
-                    padding: 30px;
+                    padding: 30px 40px;
                     border-radius: 12px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                     margin-bottom: 20px;
+                    width: 100%;
                 }
                 .detail-header {
                     display: flex;
@@ -297,8 +301,9 @@ def create_app() -> dash.Dash:
                 /* Cost Analysis Page Styles */
                 .analysis-container {
                     display: grid;
-                    grid-template-columns: 350px 1fr;
-                    gap: 20px;
+                    grid-template-columns: 320px 1fr;
+                    gap: 30px;
+                    width: 100%;
                 }
                 .analysis-sidebar {
                     background: white;
@@ -311,11 +316,12 @@ def create_app() -> dash.Dash:
                 }
                 .analysis-main {
                     background: white;
-                    padding: 20px;
+                    padding: 25px 30px;
                     border-radius: 12px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                     min-width: 0;
                     overflow: hidden;
+                    flex: 1;
                 }
                 .param-group {
                     margin-bottom: 20px;

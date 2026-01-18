@@ -499,6 +499,36 @@ def create_app() -> dash.Dash:
                 .data-table tfoot td:first-child {
                     background-color: #e8e8e8;
                 }
+                /* Tooltip styling for data cells */
+                .data-table td[title] {
+                    position: relative;
+                    cursor: help;
+                }
+                .data-table td[title]:hover::after {
+                    content: attr(title);
+                    position: absolute;
+                    bottom: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #333;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    white-space: nowrap;
+                    z-index: 10;
+                    pointer-events: none;
+                }
+                .data-table td[title]:hover::before {
+                    content: '';
+                    position: absolute;
+                    bottom: 100%;
+                    left: 50%;
+                    transform: translateX(-50%) translateY(6px);
+                    border: 5px solid transparent;
+                    border-top-color: #333;
+                    z-index: 10;
+                }
                 @media (max-width: 900px) {
                     .analysis-container {
                         grid-template-columns: 1fr;
@@ -990,24 +1020,38 @@ def generate_simple_table(
     is_currency: bool = True,
     is_ratio: bool = False,
 ) -> html.Div | list[Any]:
-    """Generate a simple table with years as columns and homes as rows."""
+    """Generate a simple table with years as rows and homes as columns, color-coded with tooltips."""
     if not all_results:
         return []
 
     # Get all years from the first result
     first_results = list(all_results.values())[0]["results"]
     all_years = [r.year for r in first_results]
+    home_labels = list(all_results.keys())
 
-    # Build header row
-    header_cells = [html.Th("Home")] + [html.Th(f"Year {yr}") for yr in all_years]
+    # Build header row - Year column + one column per home
+    header_cells = [html.Th("Year")]
+    for label in home_labels:
+        color = all_results[label]["color"]
+        header_cells.append(
+            html.Th(
+                label[:25],
+                style={"color": color},
+                title=label,
+            )
+        )
 
-    # Build data rows
+    # Build data rows - one row per year
     rows = []
-    for label, data in all_results.items():
-        results = data["results"]
-        cells = [html.Td(label[:30])]
+    for year_idx, year in enumerate(all_years):
+        cells = [html.Td(str(year))]
 
-        for r in results:
+        for label in home_labels:
+            data = all_results[label]
+            results = data["results"]
+            color = data["color"]
+
+            r = results[year_idx]
             if field == "roi":
                 val = r.roi if r.roi else 0
                 cell_text = f"{val:.2f}x" if val else "—"
@@ -1019,7 +1063,14 @@ def generate_simple_table(
                     cell_text = f"{val:.2f}x" if val else "—"
                 else:
                     cell_text = f"{val:,.0f}"
-            cells.append(html.Td(cell_text))
+
+            cells.append(
+                html.Td(
+                    cell_text,
+                    style={"color": color},
+                    title=f"{label}: {cell_text}",
+                )
+            )
 
         rows.append(html.Tr(cells))
 
@@ -1067,13 +1118,14 @@ def generate_costs_table(all_results: dict[str, Any], years: int) -> html.Div | 
 
         # Year 0 row - shows closing fees
         yr0 = results[0]
+        initial_cost = f"${yr0.total_cash_invested:,.0f}"
         rows.append(html.Tr([
             html.Td("0 (Purchase)"),
             html.Td("—"),
             html.Td("—"),
             html.Td("—"),
             html.Td("—"),
-            html.Td(f"${yr0.total_cash_invested:,.0f}", style={"fontWeight": "600"}),
+            html.Td(initial_cost, style={"fontWeight": "600", "color": color}, title=f"{label}: {initial_cost}"),
         ]))
 
         # Cumulative totals for footer
@@ -1097,23 +1149,35 @@ def generate_costs_table(all_results: dict[str, Any], years: int) -> html.Div | 
             )
             total_all += year_total
 
+            taxes_str = f"${r.annual_taxes:,.0f}"
+            repairs_str = f"${r.annual_repair:,.0f}"
+            maint_str = f"${r.annual_maintenance:,.0f}"
+            mortgage_str = f"${r.annual_mortgage_payment:,.0f}"
+            total_str = f"${year_total:,.0f}"
+
             rows.append(html.Tr([
                 html.Td(str(r.year)),
-                html.Td(f"${r.annual_taxes:,.0f}"),
-                html.Td(f"${r.annual_repair:,.0f}"),
-                html.Td(f"${r.annual_maintenance:,.0f}"),
-                html.Td(f"${r.annual_mortgage_payment:,.0f}"),
-                html.Td(f"${year_total:,.0f}", style={"fontWeight": "600"}),
+                html.Td(taxes_str, style={"color": color}, title=f"{label}: {taxes_str}"),
+                html.Td(repairs_str, style={"color": color}, title=f"{label}: {repairs_str}"),
+                html.Td(maint_str, style={"color": color}, title=f"{label}: {maint_str}"),
+                html.Td(mortgage_str, style={"color": color}, title=f"{label}: {mortgage_str}"),
+                html.Td(total_str, style={"fontWeight": "600", "color": color}, title=f"{label}: {total_str}"),
             ]))
 
         # Footer with totals
+        total_taxes_str = f"${total_taxes:,.0f}"
+        total_repairs_str = f"${total_repairs:,.0f}"
+        total_maint_str = f"${total_maintenance:,.0f}"
+        total_mortgage_str = f"${total_mortgage:,.0f}"
+        total_all_str = f"${total_all:,.0f}"
+
         footer_row = html.Tr([
             html.Td("Total"),
-            html.Td(f"${total_taxes:,.0f}"),
-            html.Td(f"${total_repairs:,.0f}"),
-            html.Td(f"${total_maintenance:,.0f}"),
-            html.Td(f"${total_mortgage:,.0f}"),
-            html.Td(f"${total_all:,.0f}"),
+            html.Td(total_taxes_str, style={"color": color}, title=f"{label}: {total_taxes_str}"),
+            html.Td(total_repairs_str, style={"color": color}, title=f"{label}: {total_repairs_str}"),
+            html.Td(total_maint_str, style={"color": color}, title=f"{label}: {total_maint_str}"),
+            html.Td(total_mortgage_str, style={"color": color}, title=f"{label}: {total_mortgage_str}"),
+            html.Td(total_all_str, style={"color": color}, title=f"{label}: {total_all_str}"),
         ])
 
         tables.append(html.Div([
@@ -1433,8 +1497,8 @@ def register_callbacks(app: dash.Dash) -> None:
         repair_pct: float | None,
         maint_inflation: float | None,
         home_selections: list[list[int]],
-    ) -> tuple[go.Figure, list[html.Div] | html.Div]:
-        """Update the analysis chart and summary cards based on selections."""
+    ) -> tuple[go.Figure, list[html.Div] | html.Div, html.Div | list[Any]]:
+        """Update the analysis chart, summary cards, and data table based on selections."""
         # Get selected home IDs from the checkbox values
         selected_ids = []
         if home_selections:

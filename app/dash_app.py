@@ -59,22 +59,6 @@ def create_app() -> dash.Dash:
                     padding: 20px 40px;
                     width: 100%;
                 }
-                .header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    padding: 20px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 12px;
-                    color: white;
-                }
-                .header-title {
-                    font-size: 2.5rem;
-                    margin-bottom: 10px;
-                }
-                .header-subtitle {
-                    font-size: 1.1rem;
-                    opacity: 0.9;
-                }
                 .controls {
                     display: flex;
                     align-items: center;
@@ -276,15 +260,26 @@ def create_app() -> dash.Dash:
                 /* Navigation styles */
                 .nav-bar {
                     display: flex;
+                    align-items: center;
+                    justify-content: space-between;
                     gap: 20px;
                     margin-bottom: 20px;
-                    padding: 15px 20px;
-                    background: white;
+                    padding: 12px 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border-radius: 8px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
+                .nav-title {
+                    font-size: 1.4rem;
+                    font-weight: 600;
+                    color: white;
+                }
+                .nav-links {
+                    display: flex;
+                    gap: 10px;
                 }
                 .nav-link {
-                    color: #667eea;
+                    color: rgba(255,255,255,0.9);
                     text-decoration: none;
                     font-weight: 500;
                     padding: 8px 16px;
@@ -292,10 +287,11 @@ def create_app() -> dash.Dash:
                     transition: background-color 0.2s;
                 }
                 .nav-link:hover {
-                    background-color: #f0f0ff;
+                    background-color: rgba(255,255,255,0.15);
+                    color: white;
                 }
                 .nav-link.active {
-                    background-color: #667eea;
+                    background-color: rgba(255,255,255,0.25);
                     color: white;
                 }
                 /* Cost Analysis Page Styles */
@@ -563,10 +559,13 @@ def create_app() -> dash.Dash:
 
 
 def create_nav_bar(active_page: str = "homes") -> html.Div:
-    """Create the navigation bar."""
+    """Create the navigation bar with site title and nav links."""
     return html.Div([
-        html.A("Home Listings", href="/", className=f"nav-link {'active' if active_page == 'homes' else ''}"),
-        html.A("Cost Analysis", href="/analysis", className=f"nav-link {'active' if active_page == 'analysis' else ''}"),
+        html.Span("Vibe House Shopping", className="nav-title"),
+        html.Div([
+            html.A("Home Listings", href="/", className=f"nav-link {'active' if active_page == 'homes' else ''}"),
+            html.A("Cost Analysis", href="/analysis", className=f"nav-link {'active' if active_page == 'analysis' else ''}"),
+        ], className="nav-links"),
     ], className="nav-bar")
 
 
@@ -575,17 +574,6 @@ def create_home_list_layout() -> html.Div:
     return html.Div([
         # Navigation
         create_nav_bar("homes"),
-        # Header
-        html.Div(
-            [
-                html.H1("Vibe House Shopping", className="header-title"),
-                html.P(
-                    "Drop HTML files into the import/ directory to add homes",
-                    className="header-subtitle",
-                ),
-            ],
-            className="header",
-        ),
         # Refresh button and stats
         html.Div(
             [
@@ -788,13 +776,6 @@ def create_cost_analysis_layout() -> html.Div:
     if not homes_with_prices:
         return html.Div([
             create_nav_bar("analysis"),
-            html.Div(
-                [
-                    html.H1("Vibe House Shopping", className="header-title"),
-                    html.P("Cost Analysis", className="header-subtitle"),
-                ],
-                className="header",
-            ),
             html.Div([
                 html.H3("No homes available for analysis"),
                 html.P("Import some home listings with prices to use the cost analysis feature."),
@@ -826,14 +807,6 @@ def create_cost_analysis_layout() -> html.Div:
     return html.Div([
         # Navigation
         create_nav_bar("analysis"),
-        # Header
-        html.Div(
-            [
-                html.H1("Vibe House Shopping", className="header-title"),
-                html.P("Cost Analysis", className="header-subtitle"),
-            ],
-            className="header",
-        ),
         # Main content
         html.Div([
             # Sidebar with controls

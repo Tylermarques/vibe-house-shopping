@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.dash_app import create_app
 from app.database import init_db
 from app.watcher import ImportWatcher
-from app.dash_app import create_app
 
 
 def main():

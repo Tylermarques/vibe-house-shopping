@@ -4,11 +4,12 @@ import logging
 import threading
 import time
 from pathlib import Path
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileCreatedEvent, FileMovedEvent
 
-from .parser import HomeDataParser
+from watchdog.events import FileCreatedEvent, FileMovedEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+
 from .database import add_home, home_exists, init_db
+from .parser import HomeDataParser
 
 logger = logging.getLogger(__name__)
 

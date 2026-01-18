@@ -6,8 +6,8 @@ spreadsheet, computing projected costs, equity, and returns over time.
 
 from dataclasses import dataclass
 from typing import Optional
-import numpy as np
 
+import numpy as np
 
 # Default values from the spreadsheet
 DEFAULTS = {

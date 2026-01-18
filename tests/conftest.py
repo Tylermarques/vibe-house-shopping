@@ -17,7 +17,7 @@ if str(project_root) not in sys.path:
 try:
     import sqlalchemy
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker, declarative_base
+    from sqlalchemy.orm import declarative_base, sessionmaker
 except ImportError:
     pass
 
@@ -135,9 +135,10 @@ def swapped_coordinates_json_ld():
 @pytest.fixture
 def temp_db(tmp_path):
     """Create a temporary database for testing."""
-    from app.database import Base, engine, init_db
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base, engine, init_db
 
     db_path = tmp_path / "test_homes.db"
     test_engine = create_engine(f"sqlite:///{db_path}")

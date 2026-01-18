@@ -2,11 +2,12 @@
 
 import json
 import re
-from bs4 import BeautifulSoup
 from pathlib import Path
 from typing import Optional
+
+from bs4 import BeautifulSoup
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
 
 class HomeDataParser:

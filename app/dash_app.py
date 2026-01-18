@@ -1,14 +1,14 @@
 """Dash application for visualizing home data on a map."""
 
 import dash
-from dash import html, dcc, dash_table, callback, Input, Output, State, ALL
 import dash_leaflet as dl
 import pandas as pd
 import plotly.graph_objects as go
+from dash import ALL, Input, Output, State, callback, dash_table, dcc, html
 from plotly.subplots import make_subplots
 
+from .cost_analysis import DEFAULTS, CostAnalysisParams, run_analysis
 from .database import get_all_homes, get_home_by_id, init_db
-from .cost_analysis import CostAnalysisParams, run_analysis, DEFAULTS
 
 
 def create_app() -> dash.Dash:

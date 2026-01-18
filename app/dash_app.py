@@ -403,7 +403,7 @@ def create_app() -> dash.Dash:
                 }
                 .summary-cards {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                     gap: 15px;
                     margin-bottom: 20px;
                 }
@@ -411,16 +411,20 @@ def create_app() -> dash.Dash:
                     background: #f8f9fa;
                     padding: 15px;
                     border-radius: 8px;
-                    text-align: center;
+                }
+                .summary-card .stat-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 4px 0;
                 }
                 .summary-card .label {
                     font-size: 0.8rem;
                     color: #666;
                     text-transform: uppercase;
-                    margin-bottom: 5px;
                 }
                 .summary-card .value {
-                    font-size: 1.3rem;
+                    font-size: 1rem;
                     font-weight: 600;
                     color: #333;
                 }
@@ -1319,21 +1323,21 @@ def register_callbacks(app: dash.Dash):
                 html.Div([
                     html.Div(label[:25], style={"fontWeight": "600", "color": color, "marginBottom": "10px", "fontSize": "0.85rem"}),
                     html.Div([
-                        html.Div("Price", className="label"),
-                        html.Div(price_str, className="value"),
-                    ]),
+                        html.Span("Price", className="label"),
+                        html.Span(price_str, className="value"),
+                    ], className="stat-row"),
                     html.Div([
-                        html.Div(f"Equity (Yr {years})", className="label"),
-                        html.Div(equity_str, className="value"),
-                    ]),
+                        html.Span(f"Equity (Yr {years})", className="label"),
+                        html.Span(equity_str, className="value"),
+                    ], className="stat-row"),
                     html.Div([
-                        html.Div("ROI", className="label"),
-                        html.Div(roi_str, className="value"),
-                    ]),
+                        html.Span("ROI", className="label"),
+                        html.Span(roi_str, className="value"),
+                    ], className="stat-row"),
                     html.Div([
-                        html.Div("Total Invested", className="label"),
-                        html.Div(cash_str, className="value"),
-                    ]),
+                        html.Span("Total Invested", className="label"),
+                        html.Span(cash_str, className="value"),
+                    ], className="stat-row"),
                 ], className="summary-card")
             )
 

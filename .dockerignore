@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Data files (mounted as volumes)
+data/
+import/
+
+# Playwright screenshots
+.playwright-mcp/
+
+# Documentation
+*.md
+!README.md
+
+# Tests (not needed in production)
+tests/
+
+# Spreadsheet
+*.xlsx

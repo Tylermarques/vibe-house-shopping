@@ -1,0 +1,22 @@
+services:
+  vibe-house-shopping:
+    build: .
+    container_name: vibe-house-shopping
+    ports:
+      # Bind to all interfaces (0.0.0.0) for local network and Tailscale access
+      - "0.0.0.0:8050:8050"
+    volumes:
+      # Persist the SQLite database
+      - ./data:/app/data
+      # Mount the import directory for dropping HTML files
+      - ./import:/app/import
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    # Health check to verify the app is running
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

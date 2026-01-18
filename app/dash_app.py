@@ -708,18 +708,24 @@ def create_cost_analysis_layout():
             ], className="no-homes-message"),
         ])
 
-    # Create home checkboxes
+    # Create home checkboxes with clickable links
     home_checkboxes = []
     for home in homes_with_prices:
         price_str = f"${home['price']:,.0f}" if home.get("price") else ""
-        label = f"{home.get('address', 'Unknown')[:40]} - {price_str}"
+        address = home.get('address', 'Unknown')[:40]
         home_checkboxes.append(
             html.Div([
                 dcc.Checklist(
                     id={"type": "home-checkbox", "index": home["id"]},
-                    options=[{"label": label, "value": home["id"]}],
+                    options=[{"label": "", "value": home["id"]}],
                     value=[],
-                    style={"display": "inline"},
+                    style={"display": "inline-block", "verticalAlign": "middle"},
+                ),
+                html.A(
+                    f"{address} - {price_str}",
+                    href=f"/home/{home['id']}",
+                    className="home-link",
+                    style={"marginLeft": "4px", "verticalAlign": "middle"},
                 ),
             ], className="home-checkbox-item")
         )
@@ -1330,7 +1336,12 @@ def register_callbacks(app: dash.Dash):
 
             summary_cards.append(
                 html.Div([
-                    html.Div(label[:25], className="card-title", style={"color": color}),
+                    html.A(
+                        label[:25],
+                        href=f"/home/{home['id']}",
+                        className="card-title home-link",
+                        style={"color": color, "display": "block"},
+                    ),
                     html.Table([
                         html.Tbody([
                             html.Tr([html.Td("Price", className="label"), html.Td(price_str, className="value")]),

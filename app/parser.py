@@ -1,5 +1,6 @@
 """HTML parser for extracting home data from various real estate listing formats."""
 
+import json
 import re
 from bs4 import BeautifulSoup
 from pathlib import Path
@@ -10,6 +11,23 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
 class HomeDataParser:
     """Parser for extracting home data from HTML files."""
+
+    # Canadian province name to abbreviation mapping
+    PROVINCE_MAP = {
+        "british columbia": "BC",
+        "ontario": "ON",
+        "quebec": "QC",
+        "alberta": "AB",
+        "manitoba": "MB",
+        "saskatchewan": "SK",
+        "nova scotia": "NS",
+        "new brunswick": "NB",
+        "newfoundland and labrador": "NL",
+        "prince edward island": "PE",
+        "northwest territories": "NT",
+        "yukon": "YT",
+        "nunavut": "NU",
+    }
 
     def __init__(self):
         self.geolocator = Nominatim(user_agent="vibe-house-shopping")
@@ -34,50 +52,251 @@ class HomeDataParser:
 
         return data
 
-    def _try_parse_generic(self, soup: BeautifulSoup, html_content: str) -> Optional[dict]:
-        """Generic parser that tries to extract data from various formats."""
+    def _parse_json_ld(self, soup: BeautifulSoup) -> dict:
+        """Extract data from JSON-LD structured data blocks (schema.org)."""
         data = {}
 
-        # Extract address - try multiple common patterns
-        data["address"] = self._extract_address(soup, html_content)
+        # Find all JSON-LD script tags
+        scripts = soup.find_all("script", type="application/ld+json")
 
-        if not data["address"]:
+        for script in scripts:
+            if not script.string:
+                continue
+            try:
+                json_data = json.loads(script.string)
+
+                # Handle @type as string or list
+                types = json_data.get("@type", [])
+                if isinstance(types, str):
+                    types = [types]
+
+                # Process Residence/RealEstateListing data
+                if any(
+                    t in types
+                    for t in [
+                        "Residence",
+                        "RealEstateListing",
+                        "SingleFamilyResidence",
+                        "House",
+                        "Apartment",
+                    ]
+                ):
+                    self._extract_residence_json_ld(json_data, data)
+
+                # Process Product data (contains price and MLS ID)
+                if "Product" in types:
+                    self._extract_product_json_ld(json_data, data)
+
+            except json.JSONDecodeError:
+                continue
+
+        return data
+
+    def _extract_residence_json_ld(self, json_data: dict, data: dict):
+        """Extract residence-specific data from JSON-LD."""
+        # Basic property info
+        if "numberOfRooms" in json_data and "num_rooms" not in data:
+            data["num_rooms"] = json_data["numberOfRooms"]
+
+        if "numberOfBedrooms" in json_data and "bedrooms" not in data:
+            data["bedrooms"] = json_data["numberOfBedrooms"]
+
+        if "numberOfBathroomsTotal" in json_data and "bathrooms" not in data:
+            data["bathrooms"] = json_data["numberOfBathroomsTotal"]
+
+        # Floor size
+        floor_size = json_data.get("floorSize")
+        if floor_size and "sqft" not in data:
+            if isinstance(floor_size, dict):
+                value = floor_size.get("value")
+                unit = floor_size.get("unitCode", "")
+                if value:
+                    # Convert if needed (FTK = square feet)
+                    if unit in ("FTK", "SQF", "sqft", ""):
+                        data["sqft"] = int(value)
+                    elif unit in ("MTK", "SQM"):  # Square meters
+                        data["sqft"] = int(value * 10.764)
+            elif isinstance(floor_size, (int, float)):
+                data["sqft"] = int(floor_size)
+
+        # Address
+        address = json_data.get("address")
+        if address and isinstance(address, dict):
+            if "streetAddress" in address and "address" not in data:
+                parts = [address.get("streetAddress", "")]
+                if address.get("addressLocality"):
+                    parts.append(address["addressLocality"])
+                if address.get("addressRegion"):
+                    parts.append(address["addressRegion"])
+                if address.get("postalCode"):
+                    parts.append(address["postalCode"])
+                data["address"] = ", ".join(filter(None, parts))
+
+            if "addressLocality" in address and "city" not in data:
+                data["city"] = address["addressLocality"]
+
+            if "addressRegion" in address and "state" not in data:
+                region = address["addressRegion"]
+                # Normalize province names to abbreviations
+                if region.lower() in self.PROVINCE_MAP:
+                    region = self.PROVINCE_MAP[region.lower()]
+                data["state"] = region
+
+            if "postalCode" in address and "zip_code" not in data:
+                data["zip_code"] = address["postalCode"]
+
+            if "addressCountry" in address and "country" not in data:
+                data["country"] = address["addressCountry"]
+
+        # Geo coordinates (with swap detection)
+        geo = json_data.get("geo")
+        if geo and isinstance(geo, dict):
+            raw_lat = geo.get("latitude")
+            raw_lng = geo.get("longitude")
+            if raw_lat is not None and raw_lng is not None:
+                lat, lng = self._validate_coordinates(float(raw_lat), float(raw_lng))
+                if lat is not None and "latitude" not in data:
+                    data["latitude"] = lat
+                if lng is not None and "longitude" not in data:
+                    data["longitude"] = lng
+
+        # Image URL
+        image = json_data.get("image")
+        if image and "image_url" not in data:
+            if isinstance(image, str):
+                data["image_url"] = image
+            elif isinstance(image, list) and image:
+                data["image_url"] = image[0] if isinstance(image[0], str) else image[0].get("url", "")
+            elif isinstance(image, dict):
+                data["image_url"] = image.get("url", "")
+
+        # Video URL
+        video = json_data.get("video")
+        if video and "video_url" not in data:
+            if isinstance(video, dict):
+                data["video_url"] = video.get("contentUrl") or video.get("url", "")
+            elif isinstance(video, str):
+                data["video_url"] = video
+
+        # Description
+        description = json_data.get("description")
+        if description and "description" not in data:
+            data["description"] = description[:2000]
+
+        # URL
+        url = json_data.get("url")
+        if url and "source_url" not in data:
+            data["source_url"] = url
+
+    def _extract_product_json_ld(self, json_data: dict, data: dict):
+        """Extract product data from JSON-LD (contains MLS ID and price)."""
+        # MLS ID from SKU
+        sku = json_data.get("sku")
+        if sku and "mls_id" not in data:
+            data["mls_id"] = sku
+
+        # Price from offers
+        offers = json_data.get("offers")
+        if offers:
+            if isinstance(offers, list):
+                offers = offers[0] if offers else {}
+
+            if isinstance(offers, dict):
+                price = offers.get("price")
+                if price and "price" not in data:
+                    try:
+                        data["price"] = float(str(price).replace(",", ""))
+                    except ValueError:
+                        pass
+
+                currency = offers.get("priceCurrency")
+                if currency and "currency" not in data:
+                    data["currency"] = currency
+
+    def _validate_coordinates(self, lat: float, lng: float) -> tuple:
+        """Validate and correct potentially swapped lat/lng coordinates.
+
+        Some data sources (like HouseSigma) incorrectly swap latitude and longitude.
+        This method detects and corrects such issues.
+        """
+        # If lat is out of valid range (-90 to 90), values are definitely swapped
+        if lat < -90 or lat > 90:
+            return lng, lat
+
+        # For North America: latitude should be positive (roughly 20-70),
+        # longitude should be negative (roughly -50 to -170)
+        # If we see the opposite pattern, they're likely swapped
+        if lat < 0 and lng > 0:
+            # Negative "lat" with positive "lng" suggests swap
+            # (NA latitudes are positive, longitudes are negative)
+            if -180 <= lat <= -50 and 20 <= lng <= 70:
+                return lng, lat
+
+        return lat, lng
+
+    def _try_parse_generic(self, soup: BeautifulSoup, html_content: str) -> Optional[dict]:
+        """Generic parser that tries to extract data from various formats."""
+        # Start with JSON-LD structured data (most reliable)
+        data = self._parse_json_ld(soup)
+
+        # Extract address - try multiple common patterns (if not from JSON-LD)
+        if "address" not in data or not data["address"]:
+            data["address"] = self._extract_address(soup, html_content)
+
+        if not data.get("address"):
             # If no address found, this probably isn't a valid listing
             return None
 
-        # Parse location components from address
+        # Parse location components from address (fills in missing city/state/zip)
         self._parse_location_from_address(data)
 
-        # Extract price
-        data["price"] = self._extract_price(soup, html_content)
+        # Extract price (fallback if not from JSON-LD)
+        if "price" not in data or not data["price"]:
+            data["price"] = self._extract_price(soup, html_content)
 
-        # Extract bedrooms/bathrooms
-        data["bedrooms"] = self._extract_bedrooms(soup, html_content)
-        data["bathrooms"] = self._extract_bathrooms(soup, html_content)
+        # Extract bedrooms/bathrooms (fallback)
+        if "bedrooms" not in data:
+            data["bedrooms"] = self._extract_bedrooms(soup, html_content)
+        if "bathrooms" not in data:
+            data["bathrooms"] = self._extract_bathrooms(soup, html_content)
 
-        # Extract square footage
-        data["sqft"] = self._extract_sqft(soup, html_content)
+        # Extract square footage (fallback)
+        if "sqft" not in data:
+            data["sqft"] = self._extract_sqft(soup, html_content)
 
         # Extract lot size
-        data["lot_size"] = self._extract_lot_size(soup, html_content)
+        if "lot_size" not in data:
+            data["lot_size"] = self._extract_lot_size(soup, html_content)
 
         # Extract year built
-        data["year_built"] = self._extract_year_built(soup, html_content)
+        if "year_built" not in data:
+            data["year_built"] = self._extract_year_built(soup, html_content)
 
         # Extract property type
-        data["property_type"] = self._extract_property_type(soup, html_content)
+        if "property_type" not in data:
+            data["property_type"] = self._extract_property_type(soup, html_content)
 
-        # Extract description
-        data["description"] = self._extract_description(soup)
+        # Extract description (fallback)
+        if "description" not in data:
+            data["description"] = self._extract_description(soup)
 
-        # Try to extract coordinates from embedded maps or data attributes
-        lat, lng = self._extract_coordinates(soup, html_content)
-        if lat and lng:
-            data["latitude"] = lat
-            data["longitude"] = lng
+        # Try to extract coordinates from embedded maps or data attributes (fallback)
+        if "latitude" not in data or "longitude" not in data:
+            lat, lng = self._extract_coordinates(soup, html_content)
+            if lat and lng:
+                data["latitude"] = lat
+                data["longitude"] = lng
 
-        # Extract source URL if present
-        data["source_url"] = self._extract_source_url(soup)
+        # Extract source URL if present (fallback)
+        if "source_url" not in data:
+            data["source_url"] = self._extract_source_url(soup)
+
+        # Extract new fields using regex fallbacks
+        if "mls_id" not in data:
+            data["mls_id"] = self._extract_mls_id(html_content)
+
+        if "garage_spaces" not in data:
+            data["garage_spaces"] = self._extract_garage_spaces(html_content)
 
         return data
 
@@ -125,19 +344,62 @@ class HomeDataParser:
         """Parse city, state, zip from address string."""
         address = data.get("address", "")
 
-        # Try to parse "City, ST ZIP" pattern
-        match = re.search(r",\s*([^,]+),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)", address)
-        if match:
-            data["city"] = match.group(1).strip()
-            data["state"] = match.group(2)
-            data["zip_code"] = match.group(3)
+        # Skip if we already have all location data from JSON-LD
+        if data.get("city") and data.get("state") and data.get("zip_code"):
             return
 
-        # Try "City, ST" pattern
+        # Try Canadian format: "City, Province A1A 1A1" or "City, BC A1A1A1"
+        match = re.search(
+            r",\s*([^,]+),\s*([A-Z]{2})\s*([A-Z]\d[A-Z]\s*\d[A-Z]\d)",
+            address,
+            re.IGNORECASE,
+        )
+        if match:
+            if "city" not in data or not data["city"]:
+                data["city"] = match.group(1).strip()
+            if "state" not in data or not data["state"]:
+                data["state"] = match.group(2).upper()
+            if "zip_code" not in data or not data["zip_code"]:
+                data["zip_code"] = match.group(3).upper().replace(" ", "")
+            if "country" not in data:
+                data["country"] = "CA"
+            return
+
+        # Try Canadian with full province name
+        for province_name, abbrev in self.PROVINCE_MAP.items():
+            pattern = rf",\s*([^,]+),\s*{province_name}\s*([A-Z]\d[A-Z]\s*\d[A-Z]\d)"
+            match = re.search(pattern, address, re.IGNORECASE)
+            if match:
+                if "city" not in data or not data["city"]:
+                    data["city"] = match.group(1).strip()
+                if "state" not in data or not data["state"]:
+                    data["state"] = abbrev
+                if "zip_code" not in data or not data["zip_code"]:
+                    data["zip_code"] = match.group(2).upper().replace(" ", "")
+                if "country" not in data:
+                    data["country"] = "CA"
+                return
+
+        # Try US format: "City, ST ZIP" pattern
+        match = re.search(r",\s*([^,]+),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)", address)
+        if match:
+            if "city" not in data or not data["city"]:
+                data["city"] = match.group(1).strip()
+            if "state" not in data or not data["state"]:
+                data["state"] = match.group(2)
+            if "zip_code" not in data or not data["zip_code"]:
+                data["zip_code"] = match.group(3)
+            if "country" not in data:
+                data["country"] = "US"
+            return
+
+        # Try "City, ST" pattern (no zip)
         match = re.search(r",\s*([^,]+),\s*([A-Z]{2})\s*$", address)
         if match:
-            data["city"] = match.group(1).strip()
-            data["state"] = match.group(2)
+            if "city" not in data or not data["city"]:
+                data["city"] = match.group(1).strip()
+            if "state" not in data or not data["state"]:
+                data["state"] = match.group(2)
 
     def _extract_price(self, soup: BeautifulSoup, html_content: str) -> Optional[float]:
         """Extract price from HTML."""
@@ -349,6 +611,43 @@ class HomeDataParser:
         og_url = soup.find("meta", {"property": "og:url"})
         if og_url and og_url.get("content"):
             return og_url["content"]
+
+        return None
+
+    def _extract_mls_id(self, html_content: str) -> Optional[str]:
+        """Extract MLS listing ID from HTML."""
+        # Common MLS ID patterns
+        patterns = [
+            r"MLS[#®\s]*[:\s]*([A-Z0-9-]+)",  # MLS# R3065322 or MLS: R3065322
+            r'"sku"[:\s]*"([A-Z0-9-]+)"',  # JSON sku field
+            r"(?:listing|property)[_\s-]*(?:id|number)[:\s]*([A-Z0-9-]+)",
+            r"\b(R\d{7})\b",  # Canadian MLS format: R1234567
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                mls_id = match.group(1).strip()
+                if mls_id and len(mls_id) >= 5:  # Sanity check
+                    return mls_id
+
+        return None
+
+    def _extract_garage_spaces(self, html_content: str) -> Optional[int]:
+        """Extract garage/parking spaces from HTML."""
+        patterns = [
+            r"(\d+)\s*(?:car\s+)?garage",  # "2 car garage" or "2 garage"
+            r"garage[:\s]*(\d+)",  # "garage: 2"
+            r"(\d+)\s*parking\s*(?:space|spot)s?",  # "2 parking spaces"
+            r"parking[:\s]*(\d+)",  # "parking: 2"
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                count = int(match.group(1))
+                if 0 < count < 20:  # Sanity check
+                    return count
 
         return None
 

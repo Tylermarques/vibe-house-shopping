@@ -368,6 +368,9 @@ def create_home_detail_layout(home_id: int):
     lot_size = f"{home['lot_size']:.2f} acres" if home.get("lot_size") else "—"
     year_built = str(home.get("year_built") or "—")
     prop_type = home.get("property_type") or "—"
+    num_rooms = str(home.get("num_rooms") or "—")
+    garage = str(home.get("garage_spaces") or "—")
+    mls_id = home.get("mls_id") or "—"
 
     location_parts = [p for p in [home.get("city"), home.get("state"), home.get("zip_code")] if p]
     location_str = ", ".join(location_parts) if location_parts else ""
@@ -376,10 +379,13 @@ def create_home_detail_layout(home_id: int):
     detail_items = [
         ("Bedrooms", beds),
         ("Bathrooms", baths),
+        ("Total Rooms", num_rooms),
         ("Square Feet", sqft),
+        ("Garage Spaces", garage),
         ("Lot Size", lot_size),
         ("Year Built", year_built),
         ("Property Type", prop_type),
+        ("MLS #", mls_id),
     ]
 
     detail_grid = html.Div([
@@ -392,6 +398,33 @@ def create_home_detail_layout(home_id: int):
 
     # Build sections
     sections = []
+
+    # Image section
+    if home.get("image_url"):
+        sections.append(html.Div([
+            html.Img(
+                src=home["image_url"],
+                style={
+                    "width": "100%",
+                    "maxHeight": "400px",
+                    "objectFit": "cover",
+                    "borderRadius": "8px",
+                },
+            ),
+        ], className="detail-section"))
+
+    # Video link section
+    if home.get("video_url"):
+        sections.append(html.Div([
+            html.H3("Virtual Tour"),
+            html.A(
+                "View Video Tour",
+                href=home["video_url"],
+                target="_blank",
+                className="home-link",
+                style={"fontSize": "1.1rem"},
+            ),
+        ], className="detail-section"))
 
     # Description section
     if home.get("description"):
@@ -494,13 +527,16 @@ def register_callbacks(app: dash.Dash):
         header = html.Tr([
             html.Th("Address"),
             html.Th("City"),
-            html.Th("State"),
+            html.Th("State/Prov"),
             html.Th("Price"),
             html.Th("Beds"),
             html.Th("Baths"),
             html.Th("Sq Ft"),
+            html.Th("Rooms"),
+            html.Th("Garage"),
             html.Th("Year Built"),
             html.Th("Type"),
+            html.Th("MLS #"),
         ])
 
         rows = []
@@ -520,8 +556,11 @@ def register_callbacks(app: dash.Dash):
                 html.Td(home.get("bedrooms") or "—"),
                 html.Td(home.get("bathrooms") or "—"),
                 html.Td(sqft_str),
+                html.Td(home.get("num_rooms") or "—"),
+                html.Td(home.get("garage_spaces") or "—"),
                 html.Td(home.get("year_built") or "—"),
                 html.Td(home.get("property_type") or "—"),
+                html.Td(home.get("mls_id") or "—"),
             ])
             rows.append(row)
 
@@ -551,16 +590,27 @@ def register_callbacks(app: dash.Dash):
                 beds = home.get("bedrooms") or "?"
                 baths = home.get("bathrooms") or "?"
                 sqft = f"{home['sqft']:,}" if home.get("sqft") else "?"
+                garage = home.get("garage_spaces") or 0
+                mls_id = home.get("mls_id") or ""
+
+                # Build image HTML if available
+                image_html = ""
+                if home.get("image_url"):
+                    image_html = f'<img src="{home["image_url"]}" style="width:100%;max-height:120px;object-fit:cover;border-radius:4px;margin-bottom:8px;" onerror="this.style.display=\'none\'"/>'
+
+                # Build MLS line if available
+                mls_html = f"<br/>MLS: {mls_id}" if mls_id else ""
 
                 popup_html = f"""
                 <div class="popup-content">
+                    {image_html}
                     <div class="popup-price">{price_str}</div>
                     <div class="popup-address">
                         <a href="/home/{home['id']}" class="home-link">{home.get('address', 'Address N/A')}</a>
                     </div>
                     <div class="popup-details">
-                        {beds} bed | {baths} bath | {sqft} sqft<br/>
-                        {home.get('property_type', '')}
+                        {beds} bed | {baths} bath | {sqft} sqft{f' | {garage} garage' if garage else ''}<br/>
+                        {home.get('property_type', '')}{mls_html}
                     </div>
                 </div>
                 """

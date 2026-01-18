@@ -39,6 +39,15 @@ class Home(Base):
     imported_at = Column(DateTime, default=datetime.utcnow)
     raw_html = Column(Text)
 
+    # New fields for enhanced data capture
+    mls_id = Column(String(50))  # MLS listing number (e.g., R3065322)
+    num_rooms = Column(Integer)  # Total number of rooms
+    garage_spaces = Column(Integer)  # Number of garage/parking spaces
+    image_url = Column(String(1000))  # Main listing photo URL
+    video_url = Column(String(1000))  # Video tour URL
+    currency = Column(String(10))  # Currency code (CAD, USD)
+    country = Column(String(10))  # Country code (CA, US)
+
     def to_dict(self):
         """Convert home to dictionary for display."""
         return {
@@ -60,6 +69,14 @@ class Home(Base):
             "source_url": self.source_url,
             "source_file": self.source_file,
             "imported_at": self.imported_at.isoformat() if self.imported_at else None,
+            # New fields
+            "mls_id": self.mls_id,
+            "num_rooms": self.num_rooms,
+            "garage_spaces": self.garage_spaces,
+            "image_url": self.image_url,
+            "video_url": self.video_url,
+            "currency": self.currency,
+            "country": self.country,
         }
 
 
